@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Mart POS</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <!-- TOP BAR WITH THREE SECTIONS -->
+    <div class="top-bar">
+      <!-- LEFT: Logo Container -->
+      <div class="logo-container">
+        <h2>🛒 Daily Mart</h2>
+      </div>
+
+      <!-- CENTER: Navigation Menu (Yellow Bar) -->
+      <nav class="navbar">
+        <ul class="navbar-menu">
+          <li class="navbar-item active" data-page="dashboard">
+            Dashboard
+          </li>
+          <li class="navbar-item" data-page="billing">
+            Billing
+          </li>
+          <li class="navbar-item" data-page="products">
+            Products
+          </li>
+          <li class="navbar-item" data-page="stock-in">
+            Stock In
+          </li>
+          <li class="navbar-item" data-page="reports">
+            Reports
+          </li>
+          <li class="navbar-item" data-page="settings">
+            Settings
+          </li>
+        </ul>
+      </nav>
+
+      <!-- RIGHT: Date & Time Container -->
+      <div class="datetime-container">
+        <div id="current-time">--:--:--</div>
+        <div id="current-date">-- --- ----</div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="content">
+      
+      <!-- ==================== DASHBOARD SCREEN ==================== -->
+      <section id="dashboard-page" class="page active">
+        <h1 class="page-title">Dashboard</h1>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-products">0</div>
+              <div class="stat-label">Total Products</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <div class="stat-value" id="today-sales">₹0</div>
+              <div class="stat-label">Today's Sales</div>
+            </div>
+          </div>
+
+          <div class="stat-card alert">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+              <div class="stat-value" id="low-stock-count">0</div>
+              <div class="stat-label">Low Stock Items</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-info">
+              <div class="stat-value" id="month-profit">₹0</div>
+              <div class="stat-label">This Month Profit</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <h2>Quick Actions</h2>
+          <div class="action-buttons">
+            <button class="btn btn-primary" onclick="navigateTo('billing')">
+              💳 New Bill
+            </button>
+            <button class="btn btn-primary" onclick="navigateTo('products')">
+              📦 Add Product
+            </button>
+            <button class="btn btn-primary" onclick="navigateTo('stock-in')">
+              📥 Stock In
+            </button>
+            <button class="btn btn-primary" onclick="navigateTo('reports')">
+              📊 View Reports
+            </button>
+          </div>
+        </div>
+
+        <!-- Low Stock Alert -->
+        <div class="low-stock-section">
+          <h2>⚠️ Low Stock Alert (Quantity &lt; 4)</h2>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Barcode</th>
+                  <th>Product Name</th>
+                  <th>Category</th>
+                  <th>Quantity</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="low-stock-table">
+                <tr>
+                  <td colspan="5" class="text-center">No low stock items</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== BILLING SCREEN ==================== -->
+      <section id="billing-page" class="page">
+        <h1 class="page-title">Billing / Point of Sale</h1>
+
+        <div class="billing-container">
+          <!-- Left Section: Barcode Input & Cart -->
+          <div class="billing-left">
+            <!-- Barcode Input -->
+            <div class="barcode-section">
+              <label for="barcode-input" class="input-label">Scan or Enter Barcode</label>
+              <input 
+                type="text" 
+                id="barcode-input" 
+                class="barcode-input" 
+                placeholder="Scan barcode here..."
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Cart Table -->
+            <div class="cart-section">
+              <h2>Shopping Cart</h2>
+              <div class="table-container">
+                <table class="cart-table">
+                  <thead>
+                    <tr>
+                      <th>Product Name</th>
+                      <th>Quantity</th>
+                      <th>Price</th>
+                      <th>Total</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cart-items">
+                    <tr>
+                      <td colspan="5" class="text-center">Cart is empty. Scan a product to begin.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <button class="btn btn-secondary" onclick="clearCart()">
+                🗑️ Clear Cart
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Section: Total & Checkout -->
+          <div class="billing-right">
+            <div class="total-section">
+              <h2>Bill Summary</h2>
+              
+              <div class="total-line">
+                <span>Subtotal:</span>
+                <span id="cart-subtotal">₹0.00</span>
+              </div>
+
+              <div class="total-line">
+                <label>Discount:</label>
+                <input 
+                  type="number" 
+                  id="discount-input" 
+                  class="discount-input" 
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div class="total-line grand-total">
+                <span>Total:</span>
+                <span id="cart-total">₹0.00</span>
+              </div>
+
+              <div class="customer-section">
+                <label for="customer-phone">Customer Phone (WhatsApp)</label>
+                <input 
+                  type="tel" 
+                  id="customer-phone" 
+                  class="form-input" 
+                  placeholder="+91 9876543210"
+                />
+              </div>
+
+              <div class="payment-method">
+                <label>Payment Method:</label>
+                <select id="payment-method" class="form-select">
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="upi">UPI</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <button class="btn btn-primary btn-large" onclick="checkout()">
+                💳 Checkout & Print Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== PRODUCTS SCREEN ==================== -->
+      <section id="products-page" class="page">
+        <h1 class="page-title">Product Management</h1>
+
+        <div class="form-container">
+          <h2>Add / Edit Product</h2>
+          <form id="product-form" class="form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="product-barcode">Barcode *</label>
+                <input 
+                  type="text" 
+                  id="product-barcode" 
+                  class="form-input" 
+                  placeholder="8901234567890"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="product-name">Product Name *</label>
+                <input 
+                  type="text" 
+                  id="product-name" 
+                  class="form-input" 
+                  placeholder="Parle-G Biscuit"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="product-category">Category *</label>
+                <input 
+                  type="text" 
+                  id="product-category" 
+                  class="form-input" 
+                  placeholder="Biscuits"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="product-quantity">Quantity *</label>
+                <input 
+                  type="number" 
+                  id="product-quantity" 
+                  class="form-input" 
+                  placeholder="100"
+                  min="0"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="product-buy-price">Buy Price (₹) *</label>
+                <input 
+                  type="number" 
+                  id="product-buy-price" 
+                  class="form-input" 
+                  placeholder="50.00"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="product-sell-price">Sell Price (₹) *</label>
+                <input 
+                  type="number" 
+                  id="product-sell-price" 
+                  class="form-input" 
+                  placeholder="70.00"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                💾 Save Product
+              </button>
+              <button type="reset" class="btn btn-secondary">
+                🔄 Reset Form
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Product List -->
+        <div class="product-list-section">
+          <h2>All Products</h2>
+          <div class="search-bar">
+            <input 
+              type="text" 
+              id="product-search" 
+              class="search-input" 
+              placeholder="🔍 Search by barcode, name, or category..."
+            />
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Barcode</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Buy Price</th>
+                  <th>Sell Price</th>
+                  <th>Quantity</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="products-table">
+                <tr>
+                  <td colspan="7" class="text-center">No products found</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== STOCK IN SCREEN ==================== -->
+      <section id="stock-in-page" class="page">
+        <h1 class="page-title">Stock In Management</h1>
+
+        <div class="stock-in-container">
+          <div class="form-container">
+            <h2>Add Stock</h2>
+            
+            <div class="barcode-section">
+              <label for="stock-barcode">Scan Barcode</label>
+              <input 
+                type="text" 
+                id="stock-barcode" 
+                class="barcode-input" 
+                placeholder="Scan or enter barcode..."
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Product Info Display -->
+            <div id="stock-product-info" class="product-info-card" style="display: none;">
+              <h3>Product Information</h3>
+              <div class="info-grid">
+                <div class="info-item">
+                  <label>Name:</label>
+                  <span id="stock-product-name">--</span>
+                </div>
+                <div class="info-item">
+                  <label>Category:</label>
+                  <span id="stock-product-category">--</span>
+                </div>
+                <div class="info-item">
+                  <label>Current Stock:</label>
+                  <span id="stock-current-qty">0</span>
+                </div>
+                <div class="info-item">
+                  <label>Sell Price:</label>
+                  <span id="stock-sell-price">₹0</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="quantity-to-add">Quantity to Add *</label>
+                <input 
+                  type="number" 
+                  id="quantity-to-add" 
+                  class="form-input" 
+                  placeholder="50"
+                  min="1"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="stock-notes">Notes (Optional)</label>
+                <textarea 
+                  id="stock-notes" 
+                  class="form-textarea" 
+                  placeholder="New shipment, supplier details, etc."
+                  rows="3"
+                ></textarea>
+              </div>
+
+              <button class="btn btn-primary" onclick="addStock()">
+                ✅ Add Stock
+              </button>
+            </div>
+          </div>
+
+          <!-- Stock History -->
+          <div class="stock-history-section">
+            <h2>Recent Stock Additions</h2>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Product</th>
+                    <th>Qty Added</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="stock-history-table">
+                  <tr>
+                    <td colspan="4" class="text-center">No stock history</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== REPORTS SCREEN ==================== -->
+      <section id="reports-page" class="page">
+        <h1 class="page-title">Reports & Analytics</h1>
+
+        <!-- Report Tabs -->
+        <div class="report-tabs">
+          <button class="report-tab active" data-report="daily">Daily Sales</button>
+          <button class="report-tab" data-report="monthly">Monthly Sales</button>
+          <button class="report-tab" data-report="profit">Profit Report</button>
+          <button class="report-tab" data-report="top-products">Top Products</button>
+        </div>
+
+        <!-- Daily Sales Report -->
+        <div id="daily-report" class="report-section active">
+          <h2>Daily Sales Report</h2>
+          <div class="report-filters">
+            <input type="date" id="daily-date" class="form-input" />
+            <button class="btn btn-primary" onclick="loadDailyReport()">Generate</button>
+          </div>
+
+          <div class="report-summary">
+            <div class="summary-card">
+              <div class="summary-label">Total Bills</div>
+              <div class="summary-value" id="daily-bills">0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Gross Sales</div>
+              <div class="summary-value" id="daily-gross">₹0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Discounts</div>
+              <div class="summary-value" id="daily-discount">₹0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Net Sales</div>
+              <div class="summary-value" id="daily-net">₹0</div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Bill Number</th>
+                  <th>Time</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody id="daily-sales-table">
+                <tr>
+                  <td colspan="5" class="text-center">No sales data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Monthly Sales Report -->
+        <div id="monthly-report" class="report-section">
+          <h2>Monthly Sales Report</h2>
+          <div class="report-filters">
+            <input type="month" id="monthly-month" class="form-input" />
+            <button class="btn btn-primary" onclick="loadMonthlyReport()">Generate</button>
+          </div>
+
+          <div class="report-summary">
+            <div class="summary-card">
+              <div class="summary-label">Total Bills</div>
+              <div class="summary-value" id="monthly-bills">0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Net Sales</div>
+              <div class="summary-value" id="monthly-net">₹0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Avg Bill Value</div>
+              <div class="summary-value" id="monthly-avg">₹0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profit Report -->
+        <div id="profit-report" class="report-section">
+          <h2>Profit Report</h2>
+          <div class="report-filters">
+            <input type="date" id="profit-start" class="form-input" placeholder="Start Date" />
+            <input type="date" id="profit-end" class="form-input" placeholder="End Date" />
+            <button class="btn btn-primary" onclick="loadProfitReport()">Generate</button>
+          </div>
+
+          <div class="report-summary">
+            <div class="summary-card">
+              <div class="summary-label">Total Revenue</div>
+              <div class="summary-value" id="profit-revenue">₹0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Total Cost</div>
+              <div class="summary-value" id="profit-cost">₹0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Gross Profit</div>
+              <div class="summary-value" id="profit-gross">₹0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Profit Margin</div>
+              <div class="summary-value" id="profit-margin">0%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Products Report -->
+        <div id="top-products-report" class="report-section">
+          <h2>Top Selling Products</h2>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Qty Sold</th>
+                  <th>Revenue</th>
+                  <th>Profit</th>
+                </tr>
+              </thead>
+              <tbody id="top-products-table">
+                <tr>
+                  <td colspan="6" class="text-center">No data available</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SETTINGS SCREEN ==================== -->
+      <section id="settings-page" class="page">
+        <h1 class="page-title">Settings</h1>
+
+        <div class="settings-container">
+          <div class="settings-section">
+            <h2>Shop Information</h2>
+            <div class="form-group">
+              <label>Shop Name</label>
+              <input type="text" class="form-input" value="Daily Mart" />
+            </div>
+            <div class="form-group">
+              <label>Address</label>
+              <textarea class="form-textarea" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" class="form-input" placeholder="+91 9876543210" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h2>Database</h2>
+            <button class="btn btn-primary">📥 Backup Database</button>
+            <button class="btn btn-secondary">♻️ Restore Database</button>
+            <button class="btn btn-secondary">🔧 Optimize Database</button>
+          </div>
+
+          <div class="settings-section">
+            <h2>About</h2>
+            <p><strong>Daily Mart POS System</strong></p>
+            <p>Version 1.0.0</p>
+            <p>Desktop Point of Sale Application</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
