@@ -11,40 +11,18 @@
     <div class="top-bar">
       <!-- LEFT: Logo Container -->
       <div class="logo-container">
-        <div style="display: flex; align-items: center; gap: 10px; background: #E8D4C0; padding: 8px 16px; border-radius: 25px; width: fit-content; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Realistic Shopping Cart Icon -->
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="cartFill" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#FFD54F;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#FFC107;stop-opacity:1" />
-              </linearGradient>
-            </defs>
-            
-            <!-- Cart Handle (curved) -->
-            <path d="M 6 8 Q 16 2 26 8" stroke="#666" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-            
-            <!-- Cart Body (main basket) -->
-            <path d="M 5 9 L 8 6 L 24 6 L 27 24 L 3 24 Z" fill="url(#cartFill)" stroke="#999" stroke-width="1.2" stroke-linejoin="round"/>
-            
-            <!-- Cart Shine/Highlight -->
-            <path d="M 7 10 L 9 8 L 14 8 L 15 16 Z" fill="white" opacity="0.25"/>
-            
-            <!-- Left Wheel -->
-            <circle cx="8" cy="27" r="3" fill="none" stroke="#999" stroke-width="1.5"/>
-            <circle cx="8" cy="27" r="1.2" fill="#999"/>
-            
-            <!-- Right Wheel -->
-            <circle cx="24" cy="27" r="3" fill="none" stroke="#999" stroke-width="1.5"/>
-            <circle cx="24" cy="27" r="1.2" fill="#999"/>
-            
-            <!-- Items in cart (small boxes) -->
-            <rect x="10" y="11" width="3" height="7" fill="#FFE082" stroke="#F57C00" stroke-width="0.5"/>
-            <rect x="14" y="12" width="3" height="6" fill="#FFE082" stroke="#F57C00" stroke-width="0.5"/>
-            <rect x="18" y="10" width="3" height="8" fill="#FFE082" stroke="#F57C00" stroke-width="0.5"/>
-          </svg>
-          <!-- Text -->
-          <span style="font-size: 16px; font-weight: 700; color: #333; font-family: 'Arial', sans-serif; letter-spacing: 0.5px;">Daily Mart</span>
+        <div class="brand-logo">
+          <div class="brand-logo-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="#7B3F00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="rgba(255,255,255,0.4)"/>
+              <line x1="3" y1="6" x2="21" y2="6" stroke="#7B3F00" stroke-width="2" stroke-linecap="round"/>
+              <path d="M16 10a4 4 0 01-8 0" stroke="#7B3F00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="brand-logo-text">
+            <span class="brand-logo-name">Daily<strong>Mart</strong></span>
+            <span class="brand-logo-tag">POS System</span>
+          </div>
         </div>
       </div>
 
@@ -66,9 +44,6 @@
           <li class="navbar-item" data-page="reports">
             Reports
           </li>
-          <li class="navbar-item" data-page="settings">
-            Settings
-          </li>
         </ul>
       </nav>
 
@@ -89,6 +64,7 @@
         <!-- Stats Cards -->
         <div class="stats-grid">
           <div class="stat-card">
+            <div class="stat-value" id="total-products">0</div>
             <div class="stat-label">Total Products</div>
           </div>
 
@@ -134,6 +110,7 @@
             <table class="data-table">
               <thead>
                 <tr>
+                  <th>Product ID</th>
                   <th>Barcode</th>
                   <th>Product Name</th>
                   <th>Category</th>
@@ -143,7 +120,7 @@
               </thead>
               <tbody id="low-stock-table">
                 <tr>
-                  <td colspan="5" class="text-center">No low stock items</td>
+                  <td colspan="6" class="text-center">No low stock items</td>
                 </tr>
               </tbody>
             </table>
@@ -158,16 +135,49 @@
         <div class="billing-container">
           <!-- Left Section: Barcode Input & Cart -->
           <div class="billing-left">
-            <!-- Barcode Input -->
+            <!-- Product Input Methods -->
             <div class="barcode-section">
-              <label for="barcode-input" class="input-label">Scan or Enter Barcode</label>
-              <input 
-                type="text" 
-                id="barcode-input" 
-                class="barcode-input" 
-                placeholder="Scan barcode here..."
-                autocomplete="off"
-              />
+              <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <!-- Barcode Input -->
+                <div style="flex: 1;">
+                  <label for="barcode-input" class="input-label">Scan Barcode</label>
+                  <input 
+                    type="text" 
+                    id="barcode-input" 
+                    class="barcode-input" 
+                    placeholder="Scan or type barcode..."
+                    autocomplete="off"
+                  />
+                </div>
+                
+                <!-- Product Name Search -->
+                <div style="flex: 1; position: relative;">
+                  <label for="product-search" class="input-label">Search Product</label>
+                  <input 
+                    type="text" 
+                    id="product-search" 
+                    class="barcode-input" 
+                    placeholder="Type product name (e.g., det, milk, cola)..."
+                    autocomplete="off"
+                    style="width: 100%; padding: 15px; font-size: 16px;"
+                  />
+                  <div id="product-suggestions" style="
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    right: 0;
+                    background: white;
+                    border: 2px solid #FFC107;
+                    border-top: none;
+                    max-height: 400px;
+                    overflow-y: auto;
+                    display: none;
+                    z-index: 1000;
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+                    border-radius: 0 0 8px 8px;
+                  "></div>
+                </div>
+              </div>
             </div>
 
             <!-- Cart Table -->
@@ -202,6 +212,24 @@
           <div class="billing-right">
             <div class="total-section">
               <h2>Bill Summary</h2>
+
+              <!-- Real-time clock -->
+              <div id="billing-datetime" style="
+                background: #FFC107;
+                border-radius: 8px;
+                padding: 10px 14px;
+                margin-bottom: 18px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-family: 'Courier New', monospace;
+              ">
+                <div style="font-size: 22px; font-weight: 700; letter-spacing: 2px;" id="billing-time">--:--:--</div>
+                <div style="text-align: right;">
+                  <div style="font-size: 12px; font-weight: 600;" id="billing-date">--- --, ----</div>
+                  <div style="font-size: 11px; color: #555;" id="billing-bill-no">Bill #---</div>
+                </div>
+              </div>
               
               <div class="total-line">
                 <span>Subtotal:</span>
@@ -214,12 +242,17 @@
               </div>
 
               <div class="customer-section">
-                <label for="customer-phone">Customer Phone (WhatsApp)</label>
+                <label for="customer-phone" style="display:flex; align-items:center; gap:6px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#25D366" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  Customer WhatsApp Number <span style="color:red;">*</span>
+                </label>
                 <input 
                   type="tel" 
                   id="customer-phone" 
                   class="form-input" 
-                  placeholder="+91 9876543210"
+                  placeholder="9876543210 (required)"
+                  required
+                  style="border: 2px solid #25D366;"
                 />
               </div>
 
@@ -233,8 +266,15 @@
                 </select>
               </div>
 
-              <button class="btn btn-primary btn-large" onclick="checkout()">
-                Checkout & Print Bill
+              <button class="btn-whatsapp-checkout" onclick="checkout()">
+                <span class="wa-icon-wrap">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                </span>
+                <span class="wa-text">
+                  <span class="wa-text-main">Checkout &amp; Send Bill</span>
+                  <span class="wa-text-sub">via WhatsApp &#183; Bill sent instantly</span>
+                </span>
+                <span class="wa-arrow">&#10132;</span>
               </button>
             </div>
           </div>
@@ -254,6 +294,7 @@
                 <input 
                   type="text" 
                   id="product-barcode" 
+                  name="barcode"
                   class="form-input" 
                   placeholder="8901234567890"
                   required
@@ -265,6 +306,7 @@
                 <input 
                   type="text" 
                   id="product-name" 
+                  name="name"
                   class="form-input" 
                   placeholder="Parle-G Biscuit"
                   required
@@ -275,13 +317,41 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="product-category">Category *</label>
-                <input 
-                  type="text" 
+                <select 
                   id="product-category" 
+                  name="category"
                   class="form-input" 
-                  placeholder="Biscuits"
                   required
-                />
+                  style="cursor: pointer;"
+                >
+                  <option value="">-- Select Category --</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Biscuits">Biscuits</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Snacks">Snacks</option>
+                  <option value="Ice Creams">Ice Creams</option>
+                  <option value="Frozen Foods">Frozen Foods</option>
+                  <option value="Bakery">Bakery</option>
+                  <option value="Fruits & Vegetables">Fruits & Vegetables</option>
+                  <option value="Meat & Seafood">Meat & Seafood</option>
+                  <option value="Instant Food">Instant Food</option>
+                  <option value="Cooking Oil">Cooking Oil</option>
+                  <option value="Spices & Masala">Spices & Masala</option>
+                  <option value="Rice & Grains">Rice & Grains</option>
+                  <option value="Pulses & Dals">Pulses & Dals</option>
+                  <option value="Sauces & Condiments">Sauces & Condiments</option>
+                  <option value="Health Drinks">Health Drinks</option>
+                  <option value="Confectionery">Confectionery</option>
+                  <option value="Personal Care">Personal Care</option>
+                  <option value="Health & Wellness">Health & Wellness</option>
+                  <option value="Baby Care">Baby Care</option>
+                  <option value="Cleaning Supplies">Cleaning Supplies</option>
+                  <option value="Detergents">Detergents</option>
+                  <option value="Household Items">Household Items</option>
+                  <option value="Stationery">Stationery</option>
+                  <option value="Pet Care">Pet Care</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
 
               <div class="form-group">
@@ -289,6 +359,7 @@
                 <input 
                   type="number" 
                   id="product-quantity" 
+                  name="quantity"
                   class="form-input" 
                   placeholder="100"
                   min="0"
@@ -303,6 +374,7 @@
                 <input 
                   type="number" 
                   id="product-buy-price" 
+                  name="buy-price"
                   class="form-input" 
                   placeholder="50.00"
                   min="0"
@@ -316,6 +388,7 @@
                 <input 
                   type="number" 
                   id="product-sell-price" 
+                  name="sell-price"
                   class="form-input" 
                   placeholder="70.00"
                   min="0"
@@ -332,6 +405,9 @@
               <button type="reset" class="btn btn-secondary">
                 Reset Form
               </button>
+              <button type="button" id="cancel-edit-btn" class="btn btn-secondary" onclick="cancelEdit()" style="display:none; background:#e74c3c; color:#fff;">
+                Cancel Edit
+              </button>
             </div>
           </form>
         </div>
@@ -342,7 +418,7 @@
           <div class="search-bar">
             <input 
               type="text" 
-              id="product-search" 
+              id="product-search-filter" 
               class="search-input" 
               placeholder="Search by barcode, name, or category..."
             />
@@ -352,6 +428,7 @@
             <table class="data-table">
               <thead>
                 <tr>
+                  <th>ID</th>
                   <th>Barcode</th>
                   <th>Name</th>
                   <th>Category</th>
@@ -363,7 +440,7 @@
               </thead>
               <tbody id="products-table">
                 <tr>
-                  <td colspan="7" class="text-center">No products found</td>
+                  <td colspan="8" class="text-center">No products found</td>
                 </tr>
               </tbody>
             </table>
@@ -375,70 +452,66 @@
       <section id="stock-in-page" class="page">
         <h1 class="page-title">Stock In Management</h1>
 
-        <div class="stock-in-container">
-          <div class="form-container">
-            <h2>Add Stock</h2>
-            
-            <div class="barcode-section">
-              <label for="stock-barcode">Scan Barcode</label>
-              <input 
-                type="text" 
-                id="stock-barcode" 
-                class="barcode-input" 
-                placeholder="Scan or enter barcode..."
-                autocomplete="off"
-              />
-            </div>
-
-            <!-- Product Info Display -->
-            <div id="stock-product-info" class="product-info-card" style="display: none;">
-              <h3>Product Information</h3>
-              <div class="info-grid">
-                <div class="info-item">
-                  <label>Name:</label>
-                  <span id="stock-product-name">--</span>
-                </div>
-                <div class="info-item">
-                  <label>Category:</label>
-                  <span id="stock-product-category">--</span>
-                </div>
-                <div class="info-item">
-                  <label>Current Stock:</label>
-                  <span id="stock-current-qty">0</span>
-                </div>
-                <div class="info-item">
-                  <label>Sell Price:</label>
-                  <span id="stock-sell-price">₹0</span>
-                </div>
+        <div class="form-container">
+          <h2>Add Stock</h2>
+          <form id="stock-form" class="form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="stock-product-id">Product ID *</label>
+                <input 
+                  type="number" 
+                  id="stock-product-id" 
+                  name="product-id"
+                  class="form-input" 
+                  placeholder="Enter Product ID"
+                  min="1"
+                  required
+                />
+                <small>Tip: Check Products page for Product IDs</small>
               </div>
 
               <div class="form-group">
-                <label for="quantity-to-add">Quantity to Add *</label>
+                <label for="stock-quantity">Quantity to Add *</label>
                 <input 
                   type="number" 
-                  id="quantity-to-add" 
+                  id="stock-quantity" 
+                  name="quantity"
                   class="form-input" 
                   placeholder="50"
                   min="1"
+                  required
                 />
               </div>
+            </div>
 
+            <div class="form-row">
               <div class="form-group">
-                <label for="stock-notes">Notes (Optional)</label>
-                <textarea 
-                  id="stock-notes" 
-                  class="form-textarea" 
-                  placeholder="New shipment, supplier details, etc."
-                  rows="3"
-                ></textarea>
+                <label for="stock-purchase-price">Purchase Price (₹) *</label>
+                <input 
+                  type="number" 
+                  id="stock-purchase-price" 
+                  name="purchase-price"
+                  class="form-input" 
+                  placeholder="45.00"
+                  min="0"
+                  step="0.01"
+                  required
+                />
               </div>
+            </div>
 
-              <button class="btn btn-primary" onclick="addStock()">
-                ✅ Add Stock
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                Add Stock
+              </button>
+              <button type="reset" class="btn btn-secondary">
+                Reset Form
               </button>
             </div>
-          </div>
+          </form>
+        </div>
 
+        <div class="stock-in-container">
           <!-- Stock History -->
           <div class="stock-history-section">
             <h2>Recent Stock Additions</h2>
@@ -471,8 +544,6 @@
         <div class="report-tabs">
           <button class="report-tab active" data-report="daily">Daily Sales</button>
           <button class="report-tab" data-report="monthly">Monthly Sales</button>
-          <button class="report-tab" data-report="profit">Profit Report</button>
-          <button class="report-tab" data-report="top-products">Top Products</button>
         </div>
 
         <!-- Daily Sales Report -->
@@ -507,11 +578,12 @@
                   <th>Items</th>
                   <th>Total</th>
                   <th>Payment</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody id="daily-sales-table">
                 <tr>
-                  <td colspan="5" class="text-center">No sales data</td>
+                  <td colspan="6" class="text-center">Select a date to view sales</td>
                 </tr>
               </tbody>
             </table>
@@ -542,58 +614,6 @@
           </div>
         </div>
 
-        <!-- Profit Report -->
-        <div id="profit-report" class="report-section">
-          <h2>Profit Report</h2>
-          <div class="report-filters">
-            <input type="date" id="profit-start" class="form-input" placeholder="Start Date" />
-            <input type="date" id="profit-end" class="form-input" placeholder="End Date" />
-            <button class="btn btn-primary" onclick="loadProfitReport()">Generate</button>
-          </div>
-
-          <div class="report-summary">
-            <div class="summary-card">
-              <div class="summary-label">Total Revenue</div>
-              <div class="summary-value" id="profit-revenue">₹0</div>
-            </div>
-            <div class="summary-card">
-              <div class="summary-label">Total Cost</div>
-              <div class="summary-value" id="profit-cost">₹0</div>
-            </div>
-            <div class="summary-card">
-              <div class="summary-label">Gross Profit</div>
-              <div class="summary-value" id="profit-gross">₹0</div>
-            </div>
-            <div class="summary-card">
-              <div class="summary-label">Profit Margin</div>
-              <div class="summary-value" id="profit-margin">0%</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top Products Report -->
-        <div id="top-products-report" class="report-section">
-          <h2>Top Selling Products</h2>
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Product</th>
-                  <th>Category</th>
-                  <th>Qty Sold</th>
-                  <th>Revenue</th>
-                  <th>Profit</th>
-                </tr>
-              </thead>
-              <tbody id="top-products-table">
-                <tr>
-                  <td colspan="6" class="text-center">No data available</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
       <!-- ==================== SETTINGS SCREEN ==================== -->
@@ -613,15 +633,20 @@
             </div>
             <div class="form-group">
               <label>Phone</label>
-              <input type="tel" class="form-input" placeholder="+91 9876543210" />
+              <input type="tel" class="form-input" value="9164490335" />
             </div>
           </div>
 
           <div class="settings-section">
             <h2>Database</h2>
+            <button class="btn btn-primary" onclick="showDatabaseLocation()">Show Database Location</button>
             <button class="btn btn-primary">Backup Database</button>
             <button class="btn btn-secondary">Restore Database</button>
             <button class="btn btn-secondary">Optimize Database</button>
+            <div id="db-location-info" style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; display: none;">
+              <strong>Database File:</strong>
+              <p id="db-path" style="word-break: break-all; font-family: monospace; font-size: 14px;"></p>
+            </div>
           </div>
 
           <div class="settings-section">

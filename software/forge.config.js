@@ -4,8 +4,24 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    name: 'DailyMart',
+    executableName: 'DailyMart',
+    appVersion: '1.0.0',
   },
   rebuildConfig: {},
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'kishanBhandary',
+          name: 'dailymart'
+        },
+        prerelease: false,
+        draft: false
+      }
+    }
+  ],
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
