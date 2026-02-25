@@ -15,7 +15,7 @@ module.exports = {
       config: {
         repository: {
           owner: 'kishanBhandary',
-          name: 'dailymart'
+          name: 'dailymart-2.0'
         },
         prerelease: false,
         draft: false
