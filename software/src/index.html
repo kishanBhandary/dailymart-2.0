@@ -11,7 +11,41 @@
     <div class="top-bar">
       <!-- LEFT: Logo Container -->
       <div class="logo-container">
-        <h2>🛒 Daily Mart</h2>
+        <div style="display: flex; align-items: center; gap: 10px; background: #E8D4C0; padding: 8px 16px; border-radius: 25px; width: fit-content; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Realistic Shopping Cart Icon -->
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="cartFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#FFD54F;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#FFC107;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            
+            <!-- Cart Handle (curved) -->
+            <path d="M 6 8 Q 16 2 26 8" stroke="#666" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            
+            <!-- Cart Body (main basket) -->
+            <path d="M 5 9 L 8 6 L 24 6 L 27 24 L 3 24 Z" fill="url(#cartFill)" stroke="#999" stroke-width="1.2" stroke-linejoin="round"/>
+            
+            <!-- Cart Shine/Highlight -->
+            <path d="M 7 10 L 9 8 L 14 8 L 15 16 Z" fill="white" opacity="0.25"/>
+            
+            <!-- Left Wheel -->
+            <circle cx="8" cy="27" r="3" fill="none" stroke="#999" stroke-width="1.5"/>
+            <circle cx="8" cy="27" r="1.2" fill="#999"/>
+            
+            <!-- Right Wheel -->
+            <circle cx="24" cy="27" r="3" fill="none" stroke="#999" stroke-width="1.5"/>
+            <circle cx="24" cy="27" r="1.2" fill="#999"/>
+            
+            <!-- Items in cart (small boxes) -->
+            <rect x="10" y="11" width="3" height="7" fill="#FFE082" stroke="#F57C00" stroke-width="0.5"/>
+            <rect x="14" y="12" width="3" height="6" fill="#FFE082" stroke="#F57C00" stroke-width="0.5"/>
+            <rect x="18" y="10" width="3" height="8" fill="#FFE082" stroke="#F57C00" stroke-width="0.5"/>
+          </svg>
+          <!-- Text -->
+          <span style="font-size: 16px; font-weight: 700; color: #333; font-family: 'Arial', sans-serif; letter-spacing: 0.5px;">Daily Mart</span>
+        </div>
       </div>
 
       <!-- CENTER: Navigation Menu (Yellow Bar) -->
@@ -55,35 +89,22 @@
         <!-- Stats Cards -->
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-icon">📦</div>
-            <div class="stat-info">
-              <div class="stat-value" id="total-products">0</div>
-              <div class="stat-label">Total Products</div>
-            </div>
+            <div class="stat-label">Total Products</div>
           </div>
 
           <div class="stat-card">
-            <div class="stat-icon">💰</div>
-            <div class="stat-info">
-              <div class="stat-value" id="today-sales">₹0</div>
-              <div class="stat-label">Today's Sales</div>
-            </div>
+            <div class="stat-value" id="today-sales">₹0</div>
+            <div class="stat-label">Today's Sales</div>
           </div>
 
           <div class="stat-card alert">
-            <div class="stat-icon">⚠️</div>
-            <div class="stat-info">
-              <div class="stat-value" id="low-stock-count">0</div>
-              <div class="stat-label">Low Stock Items</div>
-            </div>
+            <div class="stat-value" id="low-stock-count">0</div>
+            <div class="stat-label">Low Stock Items</div>
           </div>
 
           <div class="stat-card">
-            <div class="stat-icon">📈</div>
-            <div class="stat-info">
-              <div class="stat-value" id="month-profit">₹0</div>
-              <div class="stat-label">This Month Profit</div>
-            </div>
+            <div class="stat-value" id="month-profit">₹0</div>
+            <div class="stat-label">This Month Profit</div>
           </div>
         </div>
 
@@ -92,23 +113,23 @@
           <h2>Quick Actions</h2>
           <div class="action-buttons">
             <button class="btn btn-primary" onclick="navigateTo('billing')">
-              💳 New Bill
+              New Bill
             </button>
             <button class="btn btn-primary" onclick="navigateTo('products')">
-              📦 Add Product
+              Add Product
             </button>
             <button class="btn btn-primary" onclick="navigateTo('stock-in')">
-              📥 Stock In
+              Stock In
             </button>
             <button class="btn btn-primary" onclick="navigateTo('reports')">
-              📊 View Reports
+              View Reports
             </button>
           </div>
         </div>
 
         <!-- Low Stock Alert -->
         <div class="low-stock-section">
-          <h2>⚠️ Low Stock Alert (Quantity &lt; 4)</h2>
+          <h2>Low Stock Alert (Quantity < 4)</h2>
           <div class="table-container">
             <table class="data-table">
               <thead>
@@ -172,7 +193,7 @@
               </div>
 
               <button class="btn btn-secondary" onclick="clearCart()">
-                🗑️ Clear Cart
+                Clear Cart
               </button>
             </div>
           </div>
@@ -185,18 +206,6 @@
               <div class="total-line">
                 <span>Subtotal:</span>
                 <span id="cart-subtotal">₹0.00</span>
-              </div>
-
-              <div class="total-line">
-                <label>Discount:</label>
-                <input 
-                  type="number" 
-                  id="discount-input" 
-                  class="discount-input" 
-                  placeholder="0"
-                  min="0"
-                  step="0.01"
-                />
               </div>
 
               <div class="total-line grand-total">
@@ -225,7 +234,7 @@
               </div>
 
               <button class="btn btn-primary btn-large" onclick="checkout()">
-                💳 Checkout & Print Bill
+                Checkout & Print Bill
               </button>
             </div>
           </div>
@@ -318,10 +327,10 @@
 
             <div class="form-actions">
               <button type="submit" class="btn btn-primary">
-                💾 Save Product
+                Save Product
               </button>
               <button type="reset" class="btn btn-secondary">
-                🔄 Reset Form
+                Reset Form
               </button>
             </div>
           </form>
@@ -335,7 +344,7 @@
               type="text" 
               id="product-search" 
               class="search-input" 
-              placeholder="🔍 Search by barcode, name, or category..."
+              placeholder="Search by barcode, name, or category..."
             />
           </div>
 
@@ -484,10 +493,6 @@
               <div class="summary-value" id="daily-gross">₹0</div>
             </div>
             <div class="summary-card">
-              <div class="summary-label">Discounts</div>
-              <div class="summary-value" id="daily-discount">₹0</div>
-            </div>
-            <div class="summary-card">
               <div class="summary-label">Net Sales</div>
               <div class="summary-value" id="daily-net">₹0</div>
             </div>
@@ -614,9 +619,9 @@
 
           <div class="settings-section">
             <h2>Database</h2>
-            <button class="btn btn-primary">📥 Backup Database</button>
-            <button class="btn btn-secondary">♻️ Restore Database</button>
-            <button class="btn btn-secondary">🔧 Optimize Database</button>
+            <button class="btn btn-primary">Backup Database</button>
+            <button class="btn btn-secondary">Restore Database</button>
+            <button class="btn btn-secondary">Optimize Database</button>
           </div>
 
           <div class="settings-section">

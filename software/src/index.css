@@ -45,29 +45,30 @@ body {
   z-index: 1000;
   max-width: 1920px;
   margin: 0 auto;
+  background: var(--white);
 }
 
 /* ==================== LEFT: LOGO CONTAINER ==================== */
 .logo-container {
-  background: var(--white);
-  border: 3px solid var(--yellow-primary);
-  border-radius: 30px;
-  padding: 15px 30px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  background: var(--white);
+  border-radius: 15px;
 }
 
 .logo-container:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  transform: scale(1.08);
 }
 
-.logo-container h2 {
-  color: var(--black);
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0;
-  white-space: nowrap;
+.logo-image {
+  height: 80px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.15));
+  transition: all 0.3s ease;
 }
 
 /* ==================== CENTER: NAVBAR (WHITE) ==================== */
@@ -187,7 +188,7 @@ body {
 }
 
 .page-title {
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 700;
   margin-bottom: 30px;
   color: var(--black);
@@ -235,14 +236,14 @@ body {
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--black);
   margin-bottom: 5px;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 18px;
   color: var(--gray-dark);
   font-weight: 500;
 }
@@ -253,7 +254,7 @@ body {
 }
 
 .quick-actions h2 {
-  font-size: 22px;
+  font-size: 26px;
   margin-bottom: 15px;
   color: var(--black);
 }
@@ -334,12 +335,14 @@ body {
   font-weight: 600;
   color: var(--black);
   border-bottom: 2px solid var(--yellow-dark);
+  font-size: 16px;
 }
 
 .data-table td {
   padding: 12px 15px;
   border-bottom: 1px solid var(--gray-medium);
   color: var(--black);
+  font-size: 15px;
 }
 
 .data-table tbody tr:hover {
@@ -358,7 +361,7 @@ body {
 }
 
 .low-stock-section h2 {
-  font-size: 22px;
+  font-size: 26px;
   margin-bottom: 15px;
   color: var(--red-alert);
 }
@@ -427,15 +430,17 @@ body {
 }
 
 .cart-table th {
-  padding: 12px;
+  padding: 14px;
   text-align: left;
   font-weight: 600;
   color: var(--black);
+  font-size: 16px;
 }
 
 .cart-table td {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--gray-medium);
+  font-size: 15px;
 }
 
 .cart-table tbody tr:hover {
@@ -754,7 +759,7 @@ body {
 }
 
 .summary-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--black);
 }
