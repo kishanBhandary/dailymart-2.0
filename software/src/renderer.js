@@ -162,6 +162,7 @@ function navigateTo(pageName) {
   // Reload page data if needed
   if (pageName === 'dashboard') {
     loadDashboardStats();
+    loadLowStockItems();
   } else if (pageName === 'reports') {
     loadReports();
   } else if (pageName === 'stock-in') {
@@ -431,7 +432,10 @@ function updateCartUI() {
         ${item.quantity}
         <button class="btn btn-secondary" style="padding: 5px 10px; margin-left: 5px;" onclick="incrementCartItem(${index})">+</button>
       </td>
-      <td>₹${item.unit_price.toFixed(2)}</td>
+      <td>
+        ₹${item.unit_price.toFixed(2)}
+        <button class="btn btn-secondary" style="padding: 3px 8px; margin-left: 8px; font-size: 12px;" onclick="editCartItemPrice(${index})" title="Edit Price">Edit</button>
+      </td>
       <td>₹${item.total_price.toFixed(2)}</td>
       <td>
         <button class="btn btn-secondary" onclick="removeFromCart(${index})">Remove</button>
@@ -483,20 +487,116 @@ function clearCart() {
   generateBillNumber(); // async, no need to await here
 }
 
+function editCartItemPrice(index) {
+  const item = cart[index];
+  const currentPrice = item.unit_price;
+  
+  // Create a custom dialog
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+  `;
+  
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    min-width: 400px;
+  `;
+  
+  dialog.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #333;">Edit Price</h3>
+    <p style="margin: 0 0 15px 0; color: #666;">
+      <strong>${item.name}</strong><br>
+      Current Price: ₹${currentPrice.toFixed(2)}
+    </p>
+    <input 
+      type="number" 
+      id="price-input-temp" 
+      value="${currentPrice}" 
+      step="0.01" 
+      min="0.01"
+      style="width: 100%; padding: 12px; font-size: 16px; border: 2px solid #FFC107; border-radius: 5px; margin-bottom: 20px;"
+    />
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button id="cancel-price-btn" class="btn btn-secondary">Cancel</button>
+      <button id="save-price-btn" class="btn btn-primary">Save</button>
+    </div>
+  `;
+  
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  
+  const input = document.getElementById('price-input-temp');
+  const saveBtn = document.getElementById('save-price-btn');
+  const cancelBtn = document.getElementById('cancel-price-btn');
+  
+  // Focus and select the input
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 50);
+  
+  // Handle save
+  const savePrice = () => {
+    const parsedPrice = parseFloat(input.value);
+    
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      alert('Invalid price! Please enter a valid positive number.');
+      input.focus();
+      return;
+    }
+    
+    // Update the item's unit price and recalculate total
+    item.unit_price = parsedPrice;
+    item.total_price = item.quantity * parsedPrice;
+    
+    document.body.removeChild(overlay);
+    updateCartUI();
+  };
+  
+  // Handle cancel
+  const cancelPrice = () => {
+    document.body.removeChild(overlay);
+  };
+  
+  saveBtn.addEventListener('click', savePrice);
+  cancelBtn.addEventListener('click', cancelPrice);
+  
+  // Handle Enter key
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      savePrice();
+    }
+  });
+  
+  // Handle Escape key
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      cancelPrice();
+    }
+  });
+}
+
 async function processSale() {
   if (cart.length === 0) {
     alert('Cart is empty!');
     return;
   }
 
-  // Phone is mandatory
+  // Phone is optional now
   const customerPhoneRaw = document.getElementById('customer-phone')?.value.trim() || '';
-  if (!customerPhoneRaw) {
-    alert('⚠️ Customer phone number is required to send the bill on WhatsApp!');
-    document.getElementById('customer-phone').focus();
-    return;
-  }
-
   const paymentMethod = document.getElementById('payment-method')?.value || 'cash';
 
   const saleData = {
@@ -513,10 +613,14 @@ async function processSale() {
     // Print bill
     generateAndPrintBill(saleData);
 
-    // Send bill on WhatsApp
-    sendBillOnWhatsApp(saleData);
-
-    alert(`✅ Sale completed!\nBill #${result.bill_number}\n📲 Bill sent to WhatsApp: ${customerPhoneRaw}`);
+    // Send bill on WhatsApp only if phone number is provided
+    if (customerPhoneRaw) {
+      sendBillOnWhatsApp(saleData);
+      alert(`✅ Sale completed!\nBill #${result.bill_number}\n📲 Bill sent to WhatsApp: ${customerPhoneRaw}`);
+    } else {
+      alert(`✅ Sale completed!\nBill #${result.bill_number}`);
+    }
+    
     clearCart();
     loadDashboardStats();
   } catch (error) {
@@ -1142,6 +1246,7 @@ window.removeFromCart = removeFromCart;
 window.incrementCartItem = incrementCartItem;
 window.decrementCartItem = decrementCartItem;
 window.clearCart = clearCart;
+window.editCartItemPrice = editCartItemPrice;
 window.editProduct = editProduct;
 window.cancelEdit = cancelEdit;
 window.deleteProduct = deleteProduct;
