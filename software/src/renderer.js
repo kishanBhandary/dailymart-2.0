@@ -140,6 +140,10 @@ function setupNavigationListeners() {
 }
 
 function navigateTo(pageName) {
+  // Clean up any orphaned overlays
+  const overlays = document.querySelectorAll('.price-edit-overlay');
+  overlays.forEach(overlay => overlay.remove());
+  
   // Hide all pages
   document.querySelectorAll('.page').forEach(page => {
     page.classList.remove('active');
@@ -281,6 +285,17 @@ function setupBillingListeners() {
         return;
       }
       
+      // Check if products are loaded
+      if (!allProducts || allProducts.length === 0) {
+        suggestionsDiv.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: #ff9800; font-size: 15px;">
+            ⏳ Loading products, please wait...
+          </div>
+        `;
+        suggestionsDiv.style.display = 'block';
+        return;
+      }
+      
       // Find all matching products
       const matches = allProducts.filter(product => 
         product.name.toLowerCase().includes(searchTerm) ||
@@ -372,12 +387,12 @@ async function addProductToCart(barcode) {
     const product = await window.electronAPI.getProductByBarcode(barcode);
     
     if (!product) {
-      alert('Product not found!');
+      alert('⚠️ Product not found!\nBarcode: ' + barcode);
       return;
     }
     
     if (product.quantity < 1) {
-      alert('Product out of stock!');
+      alert(`⚠️ ${product.name} is out of stock!`);
       return;
     }
     
@@ -483,16 +498,32 @@ function decrementCartItem(index) {
 
 function clearCart() {
   cart = [];
+  
+  // Clear customer phone input
+  const phoneInput = document.getElementById('customer-phone');
+  if (phoneInput) phoneInput.value = '';
+  
   updateCartUI();
-  generateBillNumber(); // async, no need to await here
+  generateBillNumber();
+  
+  // Refocus barcode input for next sale
+  setTimeout(() => {
+    const barcodeInput = document.getElementById('barcode-input');
+    if (barcodeInput) barcodeInput.focus();
+  }, 100);
 }
 
 function editCartItemPrice(index) {
   const item = cart[index];
   const currentPrice = item.unit_price;
   
+  // Remove any existing overlays first (prevent multiple dialogs)
+  const existingOverlays = document.querySelectorAll('.price-edit-overlay');
+  existingOverlays.forEach(overlay => overlay.remove());
+  
   // Create a custom dialog
   const overlay = document.createElement('div');
+  overlay.className = 'price-edit-overlay';
   overlay.style.cssText = `
     position: fixed;
     top: 0;
@@ -562,13 +593,31 @@ function editCartItemPrice(index) {
     item.unit_price = parsedPrice;
     item.total_price = item.quantity * parsedPrice;
     
-    document.body.removeChild(overlay);
+    // Remove overlay safely
+    if (overlay && overlay.parentNode) {
+      overlay.remove();
+    }
     updateCartUI();
+    
+    // Return focus to barcode input
+    setTimeout(() => {
+      const barcodeInput = document.getElementById('barcode-input');
+      if (barcodeInput) barcodeInput.focus();
+    }, 100);
   };
   
   // Handle cancel
   const cancelPrice = () => {
-    document.body.removeChild(overlay);
+    // Remove overlay safely
+    if (overlay && overlay.parentNode) {
+      overlay.remove();
+    }
+    
+    // Return focus to barcode input
+    setTimeout(() => {
+      const barcodeInput = document.getElementById('barcode-input');
+      if (barcodeInput) barcodeInput.focus();
+    }, 100);
   };
   
   saveBtn.addEventListener('click', savePrice);
@@ -577,6 +626,7 @@ function editCartItemPrice(index) {
   // Handle Enter key
   input.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       savePrice();
     }
   });
@@ -584,12 +634,26 @@ function editCartItemPrice(index) {
   // Handle Escape key
   overlay.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelPrice();
+    }
+  });
+  
+  // Click outside to close
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
       cancelPrice();
     }
   });
 }
 
+let isProcessingSale = false;
+
 async function processSale() {
+  if (isProcessingSale) {
+    return; // Prevent double-submission
+  }
+  
   if (cart.length === 0) {
     alert('Cart is empty!');
     return;
@@ -608,6 +672,7 @@ async function processSale() {
   };
 
   try {
+    isProcessingSale = true;
     const result = await window.electronAPI.createSale(saleData);
 
     // Print bill
@@ -622,10 +687,13 @@ async function processSale() {
     }
     
     clearCart();
-    loadDashboardStats();
+    await loadDashboardStats();
+    await loadLowStockItems();
   } catch (error) {
     console.error('Error processing sale:', error);
     alert('Error processing sale: ' + error.message);
+  } finally {
+    isProcessingSale = false;
   }
 }
 
