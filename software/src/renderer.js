@@ -1454,26 +1454,81 @@ function setupUpdateCheckButton() {
   if (!updateBtn) return;
 
   updateBtn.addEventListener('click', async () => {
-    // Disable button during check
-    updateBtn.disabled = true;
-    updateBtn.style.opacity = '0.6';
-    updateBtn.style.cursor = 'not-allowed';
-
     try {
-      const result = await window.electronAPI.checkForUpdates();
+      // Show loading state
+      updateBtn.disabled = true;
+      updateBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: rotate-icon 1s linear infinite;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Loading...</span>';
       
-      // Re-enable button after check
-      setTimeout(() => {
-        updateBtn.disabled = false;
-        updateBtn.style.opacity = '1';
-        updateBtn.style.cursor = 'pointer';
-      }, 2000);
-
-    } catch (error) {
-      console.error('Error checking for updates:', error);
+      const result = await window.electronAPI.getAllReleases();
+      
+      // Reset button
       updateBtn.disabled = false;
-      updateBtn.style.opacity = '1';
-      updateBtn.style.cursor = 'pointer';
+      updateBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Updates</span>';
+      
+      if (result.success && result.releases) {
+        showReleasesModal(result.releases, result.currentVersion);
+      } else {
+        alert('Failed to fetch releases. Please check your internet connection.');
+      }
+    } catch (error) {
+      console.error('Error fetching releases:', error);
+      updateBtn.disabled = false;
+      updateBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Updates</span>';
+      alert('Failed to fetch releases: ' + error.message);
+    }
+  });
+}
+
+function showReleasesModal(releases, currentVersion) {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+  
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background: white; border-radius: 12px; padding: 30px; max-width: 700px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);';
+  
+  const releasesHTML = releases.length > 0 ? releases.map(release => {
+    const isCurrent = release.version === `v${currentVersion}` || release.version === currentVersion;
+    const date = new Date(release.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    
+    return `
+      <div style="border-left: 4px solid ${isCurrent ? '#4CAF50' : '#FFC107'}; padding: 15px; margin-bottom: 15px; background: ${isCurrent ? '#f1f8f4' : '#fff9e6'}; border-radius: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="margin: 0; font-size: 18px; color: #333;">
+            ${release.version}
+            ${isCurrent ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;">CURRENT</span>' : ''}
+            ${release.isPrerelease ? '<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px;">PRE-RELEASE</span>' : ''}
+          </h3>
+          <span style="font-size: 13px; color: #666;">${date}</span>
+        </div>
+        <p style="margin: 8px 0 0 0; font-size: 14px; color: #555; line-height: 1.6;">${release.body || 'No release notes available.'}</p>
+        <a href="#" onclick="window.electronAPI.openWhatsApp('${release.url}'); return false;" style="font-size: 13px; color: #2196F3; text-decoration: none; margin-top: 8px; display: inline-block;">View on GitHub →</a>
+      </div>
+    `;
+  }).join('') : '<p style="text-align: center; color: #666;">No releases found.</p>';
+  
+  modal.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #FFC107; padding-bottom: 15px;">
+      <h2 style="margin: 0; font-size: 24px; color: #333;">📦 Available Versions</h2>
+      <button onclick="this.closest('.modal-overlay').remove()" style="background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">Close</button>
+    </div>
+    <div style="margin-bottom: 15px; padding: 12px; background: #e3f2fd; border-radius: 6px;">
+      <p style="margin: 0; font-size: 14px; color: #1976d2;">💡 <strong>Your current version:</strong> v${currentVersion}</p>
+    </div>
+    <div style="max-height: 450px; overflow-y: auto;">
+      ${releasesHTML}
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
     }
   });
 }

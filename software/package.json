@@ -1,7 +1,7 @@
 {
   "name": "dailymart",
   "productName": "DailyMart",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "DailyMart - Point of Sale System",
   "main": ".webpack/main",
   "private": true,

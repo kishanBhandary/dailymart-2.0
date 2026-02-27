@@ -8,6 +8,9 @@ const { autoUpdater } = require('electron-updater');
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Track if update check is manual or automatic
+let isManualUpdateCheck = false;
+
 // Update event listeners
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
@@ -22,9 +25,25 @@ autoUpdater.on('update-available', (info) => {
   }
 });
 
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = `Download speed: ${progressObj.bytesPerSecond}`;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + '/' + progressObj.total + ')';
+  console.log(log_message);
+  
+  // Update window title with progress
+  if (mainWindow) {
+    mainWindow.setTitle(`DailyMart - Downloading Update ${Math.round(progressObj.percent)}%`);
+  }
+});
+
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
+  
+  // Reset window title
   if (mainWindow) {
+    mainWindow.setTitle('DailyMart');
+    
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready',
@@ -41,8 +60,8 @@ autoUpdater.on('update-downloaded', (info) => {
 
 autoUpdater.on('update-not-available', (info) => {
   console.log('No updates available');
-  // Only show dialog if user manually checked (not on automatic checks)
-  if (mainWindow && mainWindow.isFocused()) {
+  // Only show dialog if user manually checked
+  if (mainWindow && isManualUpdateCheck) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'No Updates Available',
@@ -51,11 +70,13 @@ autoUpdater.on('update-not-available', (info) => {
       buttons: ['OK']
     });
   }
+  isManualUpdateCheck = false; // Reset flag
 });
 
 autoUpdater.on('error', (err) => {
   console.error('AutoUpdater error:', err);
-  if (mainWindow) {
+  // Only show error dialog if user manually checked
+  if (mainWindow && isManualUpdateCheck) {
     dialog.showMessageBox(mainWindow, {
       type: 'error',
       title: 'Update Error',
@@ -64,6 +85,7 @@ autoUpdater.on('error', (err) => {
       buttons: ['OK']
     });
   }
+  isManualUpdateCheck = false; // Reset flag
 });
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -256,6 +278,61 @@ ipcMain.handle('check-for-updates', async () => {
     }
   } else {
     return { success: false, message: 'Update check only available in production' };
+  }
+});
+
+// IPC Handler to get all releases from GitHub
+ipcMain.handle('get-all-releases', async () => {
+  try {
+    const https = require('https');
+    
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.github.com',
+        path: '/repos/kishanBhandary/dailymart-2.0/releases',
+        method: 'GET',
+        headers: {
+          'User-Agent': 'DailyMart-App',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', () => {
+          try {
+            const releases = JSON.parse(data);
+            const formattedReleases = releases.map(release => ({
+              version: release.tag_name,
+              name: release.name,
+              published_at: release.published_at,
+              body: release.body,
+              url: release.html_url,
+              isPrerelease: release.prerelease,
+              isDraft: release.draft
+            }));
+            resolve({ success: true, releases: formattedReleases, currentVersion: app.getVersion() });
+          } catch (error) {
+            reject({ success: false, message: 'Failed to parse releases' });
+          }
+        });
+      });
+
+      req.on('error', (error) => {
+        console.error('Error fetching releases:', error);
+        reject({ success: false, message: 'Failed to fetch releases from GitHub' });
+      });
+
+      req.end();
+    });
+  } catch (error) {
+    console.error('Release fetch error:', error);
+    return { success: false, message: 'Failed to fetch releases' };
   }
 });
 
@@ -575,14 +652,9 @@ const createWindow = () => {
           label: 'Check for Updates',
           click: () => {
             if (app.isPackaged) {
+              isManualUpdateCheck = true;
               autoUpdater.checkForUpdates();
-              dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                title: 'Checking for Updates',
-                message: 'Checking for updates...',
-                detail: 'Please wait while we check for available updates.',
-                buttons: ['OK']
-              });
+              // Don't show "Checking" dialog - let the event handlers show results
             } else {
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
