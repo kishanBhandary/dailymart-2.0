@@ -28,4 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Bill Number
   getNextBillNumber: () => ipcRenderer.invoke('get-next-bill-number'),
+
+  // Auto Updater
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 });

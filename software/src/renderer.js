@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateBillingClock();
   setInterval(updateBillingClock, 1000);
   
+  // Setup update check button
+  setupUpdateCheckButton();
+  
   // Add global cleanup for orphaned overlays (Windows fix)
   document.addEventListener('focusin', (e) => {
     // If user focuses on an input, ensure no overlays are blocking it
@@ -280,11 +283,11 @@ function restockProduct(productId, productName) {
 // =====================================================
 
 // Prevent multiple initialization
-let isInitialized = false;
+let isBillingInitialized = false;
 
 function setupBillingListeners() {
-  if (isInitialized) return;
-  isInitialized = true;
+  if (isBillingInitialized) return;
+  isBillingInitialized = true;
   
   const barcodeInput = document.getElementById('barcode-input');
   if (barcodeInput) {
@@ -1354,6 +1357,39 @@ async function loadMonthlyReport() {
 async function loadProfitReport() {
   // Stub — profit report can be implemented later
   console.log('Profit report not yet implemented');
+}
+
+// =====================================================
+// UPDATE CHECK BUTTON
+// =====================================================
+
+function setupUpdateCheckButton() {
+  const updateBtn = document.getElementById('check-update-btn');
+  if (!updateBtn) return;
+
+  updateBtn.addEventListener('click', async () => {
+    // Disable button during check
+    updateBtn.disabled = true;
+    updateBtn.style.opacity = '0.6';
+    updateBtn.style.cursor = 'not-allowed';
+
+    try {
+      const result = await window.electronAPI.checkForUpdates();
+      
+      // Re-enable button after check
+      setTimeout(() => {
+        updateBtn.disabled = false;
+        updateBtn.style.opacity = '1';
+        updateBtn.style.cursor = 'pointer';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      updateBtn.disabled = false;
+      updateBtn.style.opacity = '1';
+      updateBtn.style.cursor = 'pointer';
+    }
+  });
 }
 
 // =====================================================

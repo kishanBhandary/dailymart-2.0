@@ -11,32 +11,59 @@ autoUpdater.autoInstallOnAppQuit = true;
 // Update event listeners
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Update Available',
-    message: `A new version (${info.version}) is available!`,
-    detail: 'The update will be downloaded in the background. You will be notified when it is ready to install.',
-    buttons: ['OK']
-  });
+  if (mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Available',
+      message: `A new version (${info.version}) is available!`,
+      detail: 'The update will be downloaded in the background. You will be notified when it is ready to install.',
+      buttons: ['OK']
+    });
+  }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Update Ready',
-    message: `Version ${info.version} has been downloaded.`,
-    detail: 'The update will be installed when you close the application. Click "Restart Now" to install immediately.',
-    buttons: ['Restart Now', 'Later']
-  }).then((result) => {
-    if (result.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
-  });
+  if (mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Ready',
+      message: `Version ${info.version} has been downloaded.`,
+      detail: 'The update will be installed when you close the application. Click "Restart Now" to install immediately.',
+      buttons: ['Restart Now', 'Later']
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('No updates available');
+  // Only show dialog if user manually checked (not on automatic checks)
+  if (mainWindow && mainWindow.isFocused()) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'No Updates Available',
+      message: 'You are using the latest version!',
+      detail: `Current version: ${app.getVersion()}`,
+      buttons: ['OK']
+    });
+  }
 });
 
 autoUpdater.on('error', (err) => {
   console.error('AutoUpdater error:', err);
+  if (mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Update Error',
+      message: 'Failed to check for updates',
+      detail: 'Please check your internet connection and try again later.',
+      buttons: ['OK']
+    });
+  }
 });
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -47,6 +74,9 @@ if (require('electron-squirrel-startup')) {
 // Database path - declared here, set inside initializeDatabase after app is ready
 let dbPath = null;
 let db = null;
+
+// Global reference to main window for dialogs
+let mainWindow = null;
 
 // Initialize SQLite Database
 const initializeDatabase = () => {
@@ -201,6 +231,21 @@ ipcMain.handle('get-next-bill-number', async () => {
 ipcMain.handle('open-external-url', async (event, url) => {
   await shell.openExternal(url);
   return { success: true };
+});
+
+// IPC Handler to check for updates
+ipcMain.handle('check-for-updates', async () => {
+  if (app.isPackaged) {
+    try {
+      await autoUpdater.checkForUpdates();
+      return { success: true, message: 'Checking for updates...' };
+    } catch (error) {
+      console.error('Update check error:', error);
+      return { success: false, message: 'Failed to check for updates' };
+    }
+  } else {
+    return { success: false, message: 'Update check only available in production' };
+  }
 });
 
 // IPC Handlers for Products
@@ -416,11 +461,8 @@ ipcMain.handle('get-stock-history', async () => {
 });
 
 const createWindow = () => {
-  // Remove default menu bar
-  Menu.setApplicationMenu(null);
-
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     autoHideMenuBar: true,
@@ -428,6 +470,46 @@ const createWindow = () => {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
     },
   });
+
+  // Create application menu with Help option
+  const menuTemplate = [
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Check for Updates',
+          click: () => {
+            if (app.isPackaged) {
+              autoUpdater.checkForUpdates();
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Checking for Updates',
+                message: 'Checking for updates...',
+                detail: 'Please wait while we check for available updates.',
+                buttons: ['OK']
+              });
+            } else {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Development Mode',
+                message: 'Update check is only available in production.',
+                detail: 'Please use the packaged app to check for updates.',
+                buttons: ['OK']
+              });
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: `Version ${app.getVersion()}`,
+          enabled: false
+        }
+      ]
+    }
+  ];
+  
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
