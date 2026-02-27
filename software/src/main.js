@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, dialog } = require('electron');
 const path = require('node:path');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
@@ -11,10 +11,28 @@ autoUpdater.autoInstallOnAppQuit = true;
 // Update event listeners
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Available',
+    message: `A new version (${info.version}) is available!`,
+    detail: 'The update will be downloaded in the background. You will be notified when it is ready to install.',
+    buttons: ['OK']
+  });
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Ready',
+    message: `Version ${info.version} has been downloaded.`,
+    detail: 'The update will be installed when you close the application. Click "Restart Now" to install immediately.',
+    buttons: ['Restart Now', 'Later']
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
 });
 
 autoUpdater.on('error', (err) => {
@@ -425,9 +443,17 @@ app.whenReady().then(() => {
   initializeDatabase();
   createWindow();
 
-  // Check for updates silently (only in production)
+  // Check for updates (only in production)
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify();
+    // Check immediately on startup
+    setTimeout(() => {
+      autoUpdater.checkForUpdates();
+    }, 3000); // Wait 3 seconds after startup
+    
+    // Check for updates every 4 hours
+    setInterval(() => {
+      autoUpdater.checkForUpdates();
+    }, 4 * 60 * 60 * 1000);
   }
 
   // On OS X it's common to re-create a window in the app when the

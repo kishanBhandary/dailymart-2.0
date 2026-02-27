@@ -36,6 +36,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(updateTime, 100);
   updateBillingClock();
   setInterval(updateBillingClock, 1000);
+  
+  // Add global cleanup for orphaned overlays (Windows fix)
+  document.addEventListener('focusin', (e) => {
+    // If user focuses on an input, ensure no overlays are blocking it
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      const overlays = document.querySelectorAll('.price-edit-overlay');
+      if (overlays.length > 0 && !e.target.id.includes('price-input-temp')) {
+        overlays.forEach(overlay => overlay.remove());
+      }
+    }
+  });
 });
 
 // =====================================================
@@ -130,7 +141,13 @@ function updateTime() {
 // NAVIGATION
 // =====================================================
 
+// Prevent multiple initialization
+let isNavigationInitialized = false;
+
 function setupNavigationListeners() {
+  if (isNavigationInitialized) return;
+  isNavigationInitialized = true;
+  
   document.querySelectorAll('.navbar-item').forEach(item => {
     item.addEventListener('click', (e) => {
       const pageName = item.getAttribute('data-page');
@@ -178,7 +195,13 @@ function navigateTo(pageName) {
 // DASHBOARD
 // =====================================================
 
+// Prevent multiple initialization
+let isDashboardInitialized = false;
+
 async function initializeDashboard() {
+  if (isDashboardInitialized) return;
+  isDashboardInitialized = true;
+  
   // Quick action buttons
   document.querySelectorAll('.action-buttons button').forEach(btn => {
     btn.addEventListener('click', function () {
@@ -256,7 +279,13 @@ function restockProduct(productId, productName) {
 // BILLING
 // =====================================================
 
+// Prevent multiple initialization
+let isInitialized = false;
+
 function setupBillingListeners() {
+  if (isInitialized) return;
+  isInitialized = true;
+  
   const barcodeInput = document.getElementById('barcode-input');
   if (barcodeInput) {
     barcodeInput.addEventListener('keypress', async (e) => {
@@ -314,7 +343,8 @@ function setupBillingListeners() {
                  transition: all 0.2s ease;
                "
                onmouseover="this.style.background='#FFC107'; this.style.color='#000';"
-               onmouseout="this.style.background='white'; this.style.color='#000';">
+               onmouseout="this.style.background='white'; this.style.color='#000';"
+               onclick="window.handleSuggestionClick('${product.barcode}')">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <strong style="font-size: 16px;">${product.name}</strong>
@@ -332,17 +362,6 @@ function setupBillingListeners() {
           </div>
         `).join('');
         suggestionsDiv.style.display = 'block';
-        
-        // Add click handlers to suggestions
-        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
-          item.addEventListener('click', async () => {
-            const barcode = item.getAttribute('data-barcode');
-            await addProductToCart(barcode);
-            productSearch.value = '';
-            suggestionsDiv.style.display = 'none';
-            productSearch.focus();
-          });
-        });
       } else {
         suggestionsDiv.innerHTML = `
           <div style="padding: 20px; text-align: center; color: #999; font-size: 15px;">
@@ -370,17 +389,27 @@ function setupBillingListeners() {
     // Add product on Enter key
     productSearch.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
         const firstSuggestion = suggestionsDiv.querySelector('.suggestion-item');
         if (firstSuggestion) {
           const barcode = firstSuggestion.getAttribute('data-barcode');
-          await addProductToCart(barcode);
-          productSearch.value = '';
-          suggestionsDiv.style.display = 'none';
+          await handleSuggestionClick(barcode);
         }
       }
     });
   }
 }
+
+// Global handler for suggestion clicks (prevent memory leaks)
+window.handleSuggestionClick = async function(barcode) {
+  const productSearch = document.getElementById('product-search');
+  const suggestionsDiv = document.getElementById('product-suggestions');
+  
+  await addProductToCart(barcode);
+  if (productSearch) productSearch.value = '';
+  if (suggestionsDiv) suggestionsDiv.style.display = 'none';
+  if (productSearch) productSearch.focus();
+};
 
 async function addProductToCart(barcode) {
   try {
@@ -573,11 +602,32 @@ function editCartItemPrice(index) {
   const saveBtn = document.getElementById('save-price-btn');
   const cancelBtn = document.getElementById('cancel-price-btn');
   
+  // Stop event propagation on dialog clicks
+  dialog.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+  
   // Focus and select the input
   setTimeout(() => {
     input.focus();
     input.select();
   }, 50);
+  
+  // Clean up function
+  const cleanup = () => {
+    // Remove all event listeners by cloning and replacing
+    if (overlay && overlay.parentNode) {
+      overlay.remove();
+    }
+    
+    // Return focus to barcode input
+    setTimeout(() => {
+      const barcodeInput = document.getElementById('barcode-input');
+      if (barcodeInput) {
+        barcodeInput.focus();
+      }
+    }, 100);
+  };
   
   // Handle save
   const savePrice = () => {
@@ -593,58 +643,43 @@ function editCartItemPrice(index) {
     item.unit_price = parsedPrice;
     item.total_price = item.quantity * parsedPrice;
     
-    // Remove overlay safely
-    if (overlay && overlay.parentNode) {
-      overlay.remove();
-    }
+    cleanup();
     updateCartUI();
-    
-    // Return focus to barcode input
-    setTimeout(() => {
-      const barcodeInput = document.getElementById('barcode-input');
-      if (barcodeInput) barcodeInput.focus();
-    }, 100);
   };
   
   // Handle cancel
   const cancelPrice = () => {
-    // Remove overlay safely
-    if (overlay && overlay.parentNode) {
-      overlay.remove();
-    }
-    
-    // Return focus to barcode input
-    setTimeout(() => {
-      const barcodeInput = document.getElementById('barcode-input');
-      if (barcodeInput) barcodeInput.focus();
-    }, 100);
+    cleanup();
   };
   
-  saveBtn.addEventListener('click', savePrice);
-  cancelBtn.addEventListener('click', cancelPrice);
+  // Attach event listeners
+  saveBtn.onclick = savePrice;
+  cancelBtn.onclick = cancelPrice;
   
   // Handle Enter key
-  input.addEventListener('keypress', (e) => {
+  input.onkeypress = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       savePrice();
     }
-  });
+  };
   
   // Handle Escape key
-  overlay.addEventListener('keydown', (e) => {
+  overlay.onkeydown = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
+      e.stopPropagation();
       cancelPrice();
     }
-  });
+  };
   
   // Click outside to close
-  overlay.addEventListener('click', (e) => {
+  overlay.onclick = (e) => {
     if (e.target === overlay) {
       cancelPrice();
     }
-  });
+  };
 }
 
 let isProcessingSale = false;
@@ -941,7 +976,13 @@ function updateBillingClock() {
 // PRODUCTS
 // =====================================================
 
+// Prevent multiple initialization
+let isProductsInitialized = false;
+
 function setupProductsListeners() {
+  if (isProductsInitialized) return;
+  isProductsInitialized = true;
+  
   const form = document.getElementById('product-form');
   if (form) {
     form.addEventListener('submit', async (e) => {
@@ -997,8 +1038,7 @@ function displayProducts(products) {
       <td>₹${product.sell_price.toFixed(2)}</td>
       <td>${product.quantity}</td>
       <td>
-        <button class="btn btn-secondary" onclick="editProduct(${product.id})">Edit</button>
-        <button class="btn btn-secondary" onclick="deleteProduct(${product.id})">Delete</button>
+        <button class="btn btn-secondary" onclick="editProduct(${product.id})">Edit</button>        <button class="btn btn-secondary" onclick="deleteProduct(${product.id})">Delete</button>
       </td>
     </tr>
   `).join('');
@@ -1095,7 +1135,13 @@ async function deleteProduct(id) {
 // STOCK IN
 // =====================================================
 
+// Prevent multiple initialization
+let isStockInInitialized = false;
+
 function setupStockInListeners() {
+  if (isStockInInitialized) return;
+  isStockInInitialized = true;
+  
   const form = document.querySelector('form[id*="stock"]');
   if (form) {
     form.addEventListener('submit', async (e) => {
@@ -1147,7 +1193,13 @@ async function loadStockHistory() {
 // REPORTS
 // =====================================================
 
+// Prevent multiple initialization
+let isReportsInitialized = false;
+
 function setupReportsListeners() {
+  if (isReportsInitialized) return;
+  isReportsInitialized = true;
+  
   document.querySelectorAll('.report-tab').forEach(tab => {
     tab.addEventListener('click', async (e) => {
       const report = e.target.getAttribute('data-report');
