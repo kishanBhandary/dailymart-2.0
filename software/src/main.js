@@ -125,6 +125,7 @@ const createTables = () => {
         sell_price REAL NOT NULL CHECK(sell_price >= buy_price),
         quantity INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
         low_stock_threshold INTEGER DEFAULT 4,
+        is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -200,8 +201,18 @@ const createTables = () => {
     db.run('CREATE INDEX IF NOT EXISTS idx_stock_in_product ON stock_in(product_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_stock_in_date ON stock_in(date)');
 
-    console.log('✅ All database tables initialized');
-  });
+    console.log(' All database tables initialized');    
+    // Migration: Add is_active column if it doesn't exist
+    db.run('ALTER TABLE products ADD COLUMN is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1))', (err) => {
+      if (err) {
+        // Column already exists or other error
+        if (err.message && err.message.includes('duplicate column')) {
+          console.log('✓ Products table schema already up to date');
+        }
+      } else {
+        console.log('✓ Migration: Added is_active column to products table');
+      }
+    });  });
 };
 
 // IPC Handler to get database path
@@ -251,63 +262,147 @@ ipcMain.handle('check-for-updates', async () => {
 // IPC Handlers for Products
 ipcMain.handle('get-all-products', async () => {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM products ORDER BY name', (err, rows) => {
+    // Try with is_active first, fall back if column doesn't exist
+    db.all('SELECT * FROM products ORDER BY name', [], (err, rows) => {
       if (err) reject(err);
-      else resolve(rows || []);
+      else {
+        // Ensure is_active defaults to 1 if not present
+        const products = rows.map(p => ({
+          ...p,
+          is_active: p.is_active !== undefined ? p.is_active : 1
+        }));
+        resolve(products);
+      }
     });
   });
 });
 
 ipcMain.handle('add-product', async (event, product) => {
   return new Promise((resolve, reject) => {
-    const { barcode, name, category, buy_price, sell_price, quantity } = product;
+    const { barcode, name, category, buy_price, sell_price, quantity, is_active } = product;
     
-    console.log('Adding product:', { barcode, name, category, buy_price, sell_price, quantity });
+    console.log('Adding product:', { barcode, name, category, buy_price, sell_price, quantity, is_active });
     
-    db.run(
-      'INSERT INTO products (barcode, name, category, buy_price, sell_price, quantity) VALUES (?, ?, ?, ?, ?, ?)',
-      [barcode, name, category, buy_price, sell_price, quantity],
-      function (err) {
-        if (err) {
-          console.error('Database error adding product:', err);
-          reject(new Error(err.message));
-        } else {
-          console.log('Product added successfully with ID:', this.lastID);
-          resolve({ id: this.lastID });
-        }
+    // Check if is_active column exists
+    db.get("PRAGMA table_info(products)", [], (err, row) => {
+      // Try with is_active, fall back to without if it fails
+      const hasIsActive = !err;
+      
+      if (hasIsActive && is_active !== undefined) {
+        db.run(
+          'INSERT INTO products (barcode, name, category, buy_price, sell_price, quantity, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [barcode, name, category, buy_price, sell_price, quantity, is_active],
+          function (err) {
+            if (err) {
+              console.error('Database error adding product:', err);
+              reject(new Error(err.message));
+            } else {
+              console.log('Product added successfully with ID:', this.lastID);
+              resolve({ id: this.lastID });
+            }
+          }
+        );
+      } else {
+        db.run(
+          'INSERT INTO products (barcode, name, category, buy_price, sell_price, quantity) VALUES (?, ?, ?, ?, ?, ?)',
+          [barcode, name, category, buy_price, sell_price, quantity],
+          function (err) {
+            if (err) {
+              console.error('Database error adding product:', err);
+              reject(new Error(err.message));
+            } else {
+              console.log('Product added successfully with ID:', this.lastID);
+              resolve({ id: this.lastID });
+            }
+          }
+        );
       }
-    );
+    });
   });
 });
 
 ipcMain.handle('update-product', async (event, id, product) => {
   return new Promise((resolve, reject) => {
-    const { name, category, buy_price, sell_price, quantity } = product;
-    db.run(
-      'UPDATE products SET name = ?, category = ?, buy_price = ?, sell_price = ?, quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name, category, buy_price, sell_price, quantity, id],
-      (err) => {
-        if (err) reject(err);
-        else resolve({ success: true });
+    const { name, category, buy_price, sell_price, quantity, is_active } = product;
+    
+    // Try with is_active first, fall back without it
+    const query = is_active !== undefined 
+      ? 'UPDATE products SET name = ?, category = ?, buy_price = ?, sell_price = ?, quantity = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      : 'UPDATE products SET name = ?, category = ?, buy_price = ?, sell_price = ?, quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    
+    const params = is_active !== undefined
+      ? [name, category, buy_price, sell_price, quantity, is_active, id]
+      : [name, category, buy_price, sell_price, quantity, id];
+    
+    db.run(query, params, (err) => {
+      if (err) {
+        // If error is about is_active column, retry without it
+        if (err.message && err.message.includes('is_active')) {
+          db.run(
+            'UPDATE products SET name = ?, category = ?, buy_price = ?, sell_price = ?, quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [name, category, buy_price, sell_price, quantity, id],
+            (err2) => {
+              if (err2) reject(err2);
+              else resolve({ success: true });
+            }
+          );
+        } else {
+          reject(err);
+        }
+      } else {
+        resolve({ success: true });
       }
-    );
+    });
   });
 });
 
 ipcMain.handle('delete-product', async (event, id) => {
   return new Promise((resolve, reject) => {
-    db.run('DELETE FROM products WHERE id = ?', [id], (err) => {
-      if (err) reject(err);
-      else resolve({ success: true });
-    });
+    // First check if product is used in any sales
+    db.get(
+      'SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?',
+      [id],
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        if (row.count > 0) {
+          // Product is used in sales, return specific error
+          reject({
+            code: 'PRODUCT_IN_USE',
+            message: `Cannot delete this product. It has been used in ${row.count} sale(s). You can edit it or mark it as discontinued instead.`
+          });
+          return;
+        }
+        
+        // Safe to delete
+        db.run('DELETE FROM products WHERE id = ?', [id], (err) => {
+          if (err) reject(err);
+          else resolve({ success: true });
+        });
+      }
+    );
   });
 });
 
 ipcMain.handle('get-product-by-barcode', async (event, barcode) => {
   return new Promise((resolve, reject) => {
+    // Try with is_active filter first
     db.get('SELECT * FROM products WHERE barcode = ?', [barcode], (err, row) => {
-      if (err) reject(err);
-      else resolve(row || null);
+      if (err) {
+        reject(err);
+      } else if (row) {
+        // Filter out inactive products if the column exists
+        if (row.is_active === 0) {
+          resolve(null); // Product is discontinued
+        } else {
+          resolve(row);
+        }
+      } else {
+        resolve(null);
+      }
     });
   });
 });

@@ -250,10 +250,19 @@ async function loadLowStockItems() {
         <td>${item.category}</td>
         <td><span style="color:red; font-weight:700;">${item.quantity}</span></td>
         <td>
-          <button class="btn btn-secondary" onclick="restockProduct(${item.id}, '${item.name.replace(/'/g, "&#39;")}')">Restock</button>
+          <button class="btn btn-secondary" data-action="restock" data-id="${item.id}" data-name="${item.name.replace(/"/g, '&quot;')}">Restock</button>
         </td>
       </tr>
     `).join('');
+    
+    // Add event listeners for restock buttons
+    tbody.querySelectorAll('button[data-action="restock"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = parseInt(e.target.dataset.id);
+        const name = e.target.dataset.name;
+        restockProduct(id, name);
+      });
+    });
   } catch (error) {
     console.error('Error loading low stock items:', error);
   }
@@ -328,12 +337,15 @@ function setupBillingListeners() {
         return;
       }
       
-      // Find all matching products
-      const matches = allProducts.filter(product => 
-        product.name.toLowerCase().includes(searchTerm) ||
-        product.category.toLowerCase().includes(searchTerm) ||
-        product.barcode.includes(searchTerm)
-      );
+      // Find all matching products (only active ones in billing)
+      const matches = allProducts.filter(product => {
+        const isActive = product.is_active !== undefined ? product.is_active : 1;
+        return isActive === 1 && (
+          product.name.toLowerCase().includes(searchTerm) ||
+          product.category.toLowerCase().includes(searchTerm) ||
+          product.barcode.includes(searchTerm)
+        );
+      });
       
       if (matches.length > 0) {
         suggestionsDiv.innerHTML = matches.map(product => `
@@ -344,10 +356,7 @@ function setupBillingListeners() {
                  cursor: pointer;
                  border-bottom: 1px solid #eee;
                  transition: all 0.2s ease;
-               "
-               onmouseover="this.style.background='#FFC107'; this.style.color='#000';"
-               onmouseout="this.style.background='white'; this.style.color='#000';"
-               onclick="window.handleSuggestionClick('${product.barcode}')">
+               ">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <strong style="font-size: 16px;">${product.name}</strong>
@@ -364,6 +373,23 @@ function setupBillingListeners() {
             </div>
           </div>
         `).join('');
+        
+        // Add event listeners for suggestions
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+          item.addEventListener('mouseover', function() {
+            this.style.background = '#FFC107';
+            this.style.color = '#000';
+          });
+          item.addEventListener('mouseout', function() {
+            this.style.background = 'white';
+            this.style.color = '#000';
+          });
+          item.addEventListener('click', function() {
+            const barcode = this.dataset.barcode;
+            window.handleSuggestionClick(barcode);
+          });
+        });
+        
         suggestionsDiv.style.display = 'block';
       } else {
         suggestionsDiv.innerHTML = `
@@ -475,20 +501,38 @@ function updateCartUI() {
     <tr>
       <td>${item.name}</td>
       <td>
-        <button class="btn btn-secondary" style="padding: 5px 10px; margin-right: 5px;" onclick="decrementCartItem(${index})">-</button>
+        <button class="btn btn-secondary" style="padding: 5px 10px; margin-right: 5px;" data-action="decrement" data-index="${index}">-</button>
         ${item.quantity}
-        <button class="btn btn-secondary" style="padding: 5px 10px; margin-left: 5px;" onclick="incrementCartItem(${index})">+</button>
+        <button class="btn btn-secondary" style="padding: 5px 10px; margin-left: 5px;" data-action="increment" data-index="${index}">+</button>
       </td>
       <td>
         ₹${item.unit_price.toFixed(2)}
-        <button class="btn btn-secondary" style="padding: 3px 8px; margin-left: 8px; font-size: 12px;" onclick="editCartItemPrice(${index})" title="Edit Price">Edit</button>
+        <button class="btn btn-secondary" style="padding: 3px 8px; margin-left: 8px; font-size: 12px;" data-action="edit-price" data-index="${index}" title="Edit Price">Edit</button>
       </td>
       <td>₹${item.total_price.toFixed(2)}</td>
       <td>
-        <button class="btn btn-secondary" onclick="removeFromCart(${index})">Remove</button>
+        <button class="btn btn-secondary" data-action="remove" data-index="${index}">Remove</button>
       </td>
     </tr>
   `).join('');
+  
+  // Add event listeners for cart action buttons
+  cartBody.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      const index = parseInt(e.target.dataset.index);
+      
+      if (action === 'decrement') {
+        decrementCartItem(index);
+      } else if (action === 'increment') {
+        incrementCartItem(index);
+      } else if (action === 'edit-price') {
+        editCartItemPrice(index);
+      } else if (action === 'remove') {
+        removeFromCart(index);
+      }
+    });
+  });
   
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
@@ -1031,20 +1075,41 @@ function displayProducts(products) {
     return;
   }
   
-  tbody.innerHTML = products.map(product => `
-    <tr>
+  tbody.innerHTML = products.map(product => {
+    const isActive = product.is_active !== undefined ? product.is_active : 1;
+    return `
+    <tr style="${isActive === 0 ? 'opacity: 0.5; background: #f5f5f5;' : ''}">
       <td><strong>${product.id}</strong></td>
       <td>${product.barcode}</td>
-      <td>${product.name}</td>
+      <td>
+        ${product.name}
+        ${isActive === 0 ? '<span style="color: #e74c3c; font-size: 11px; margin-left: 8px; background: #ffe6e6; padding: 2px 6px; border-radius: 3px;">DISCONTINUED</span>' : ''}
+      </td>
       <td>${product.category}</td>
       <td>₹${product.buy_price.toFixed(2)}</td>
       <td>₹${product.sell_price.toFixed(2)}</td>
       <td>${product.quantity}</td>
       <td>
-        <button class="btn btn-secondary" onclick="editProduct(${product.id})">Edit</button>        <button class="btn btn-secondary" onclick="deleteProduct(${product.id})">Delete</button>
+        <button class="btn btn-secondary" data-action="edit" data-id="${product.id}">Edit</button>
+        <button class="btn btn-secondary" data-action="delete" data-id="${product.id}">Delete</button>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+  
+  // Add event delegation for edit and delete buttons
+  tbody.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      const id = parseInt(e.target.dataset.id);
+      
+      if (action === 'edit') {
+        editProduct(id);
+      } else if (action === 'delete') {
+        deleteProduct(id);
+      }
+    });
+  });
 }
 
 function filterProducts() {
@@ -1074,6 +1139,8 @@ async function saveProduct(form) {
     const buy_price = parseFloat(form.querySelector('[name="buy-price"]').value);
     const sell_price = parseFloat(form.querySelector('[name="sell-price"]').value);
     const quantity = parseInt(form.querySelector('[name="quantity"]').value) || 0;
+    const activeCheckbox = form.querySelector('[name="is-active"]');
+    const is_active = activeCheckbox ? (activeCheckbox.checked ? 1 : 0) : 1;
 
     if (!barcode || !name || !category) {
       alert('Please fill all required fields!');
@@ -1094,13 +1161,13 @@ async function saveProduct(form) {
 
     if (editId) {
       // UPDATE existing product
-      const product = { name, category, buy_price, sell_price, quantity };
+      const product = { name, category, buy_price, sell_price, quantity, is_active };
       console.log('Updating product id:', editId, product);
       await window.electronAPI.updateProduct(editId, product);
       alert('Product updated successfully!');
     } else {
       // ADD new product
-      const product = { barcode, name, category, buy_price, sell_price, quantity };
+      const product = { barcode, name, category, buy_price, sell_price, quantity, is_active };
       console.log('Adding product:', product);
       await window.electronAPI.addProduct(product);
       alert('Product added successfully!');
@@ -1124,12 +1191,23 @@ async function saveProduct(form) {
 }
 
 async function deleteProduct(id) {
-  if (confirm('Are you sure?')) {
+  const product = allProducts.find(p => p.id === id);
+  const productName = product ? product.name : `ID ${id}`;
+  
+  if (confirm(`Are you sure you want to delete "${productName}"?`)) {
     try {
       await window.electronAPI.deleteProduct(id);
+      alert(`Product "${productName}" deleted successfully!`);
       await loadProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
+      
+      // Show user-friendly error message
+      if (error.code === 'PRODUCT_IN_USE') {
+        alert('❌ ' + error.message);
+      } else {
+        alert('Failed to delete product. It may have been used in sales history.');
+      }
     }
   }
 }
@@ -1268,7 +1346,7 @@ async function loadDailyReport() {
     }
 
     tbody.innerHTML = sales.map(sale => `
-      <tr style="cursor:pointer;" onclick="toggleSaleItems(this, ${sale.id})">
+      <tr style="cursor:pointer;" data-action="toggle-sale" data-sale-id="${sale.id}">
         <td><strong>${sale.bill_number}</strong></td>
         <td>${new Date(sale.sale_date).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:true})}</td>
         <td>${sale.items_count || 0} items</td>
@@ -1284,6 +1362,14 @@ async function loadDailyReport() {
         </td>
       </tr>
     `).join('');
+    
+    // Add event listeners for toggle sale items
+    tbody.querySelectorAll('tr[data-action="toggle-sale"]').forEach(row => {
+      row.addEventListener('click', function() {
+        const saleId = parseInt(this.dataset.saleId);
+        toggleSaleItems(this, saleId);
+      });
+    });
   } catch (error) {
     console.error('Error loading daily report:', error);
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color:red;">Error loading data</td></tr>';
@@ -1426,6 +1512,10 @@ function editProduct(id) {
   document.getElementById('product-quantity').value = product.quantity;
   document.getElementById('product-buy-price').value = product.buy_price;
   document.getElementById('product-sell-price').value = product.sell_price;
+  const activeCheckbox = document.getElementById('product-active');
+  if (activeCheckbox) {
+    activeCheckbox.checked = product.is_active !== undefined ? product.is_active !== 0 : true;
+  }
 
   // Store editing state
   const form = document.getElementById('product-form');
