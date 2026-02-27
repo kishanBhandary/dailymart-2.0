@@ -4,8 +4,8 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
-    name: 'DailyMart',
-    executableName: 'DailyMart',
+    name: 'dailymart',
+    executableName: 'dailymart',
     appVersion: '1.0.0',
   },
   rebuildConfig: {},
