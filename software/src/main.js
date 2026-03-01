@@ -270,11 +270,13 @@ ipcMain.handle('open-external-url', async (event, url) => {
 ipcMain.handle('check-for-updates', async () => {
   if (app.isPackaged) {
     try {
+      isManualUpdateCheck = true;
       await autoUpdater.checkForUpdates();
       return { success: true, message: 'Checking for updates...' };
     } catch (error) {
       console.error('Update check error:', error);
-      return { success: false, message: 'Failed to check for updates' };
+      isManualUpdateCheck = false;
+      return { success: false, message: `Failed to check for updates: ${error.message}` };
     }
   } else {
     return { success: false, message: 'Update check only available in production' };

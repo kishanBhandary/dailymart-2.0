@@ -6,7 +6,6 @@ module.exports = {
     asar: true,
     name: 'dailymart',
     executableName: 'dailymart',
-    appVersion: '1.0.0',
   },
   rebuildConfig: {},
   publishers: [

@@ -797,7 +797,7 @@ function sendBillOnWhatsApp(saleData) {
   const message =
 `🛒 *DAILY MART*
 _From Nature to Your Kitchen_
-📞 +91 9164490335
+📞 +91 78927 37728
 ${'─'.repeat(30)}
 📋 *Bill No:* ${saleData.bill_number}
 📅 *Date:* ${dateStr}  ⏰ ${timeStr}
@@ -909,7 +909,7 @@ function generateAndPrintBill(saleData) {
       <div class="header">
         <h2>DAILY MART</h2>
         <p>FROM NATURE TO YOUR KITCHEN</p>
-        <p>Phone: +91 9164490335</p>
+        <p>Phone: +91 78927 37728</p>
       </div>
 
       <div class="bill-info">
@@ -1459,22 +1459,20 @@ function setupUpdateCheckButton() {
       updateBtn.disabled = true;
       updateBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: rotate-icon 1s linear infinite;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Loading...</span>';
       
-      const result = await window.electronAPI.getAllReleases();
+      const result = await window.electronAPI.checkForUpdates();
       
       // Reset button
       updateBtn.disabled = false;
       updateBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Updates</span>';
       
-      if (result.success && result.releases) {
-        showReleasesModal(result.releases, result.currentVersion);
-      } else {
-        alert('Failed to fetch releases. Please check your internet connection.');
+      if (!result.success) {
+        alert(result.message || 'Failed to check for updates.');
       }
     } catch (error) {
       console.error('Error fetching releases:', error);
       updateBtn.disabled = false;
       updateBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Updates</span>';
-      alert('Failed to fetch releases: ' + error.message);
+      alert('Failed to check for updates: ' + error.message);
     }
   });
 }
