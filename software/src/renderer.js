@@ -12,6 +12,8 @@ let currentBillNumber = null;
 let allProducts = [];
 let lowStockItems = [];
 let dashboardStats = {};
+let addToCartQueue = Promise.resolve();
+let isSavingProduct = false;
 
 // =====================================================
 // INITIALIZATION
@@ -33,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadDashboardStats();
   await loadLowStockItems();
   
-  setInterval(updateTime, 100);
+  setInterval(updateTime, 1000);
   updateBillingClock();
   setInterval(updateBillingClock, 1000);
   
@@ -327,7 +329,7 @@ function setupBillingListeners() {
           barcodeInput.value = '';
           barcodeInput.style.background = '#e8f5e9'; // Green flash
           
-          await addProductToCart(barcode);
+          await enqueueAddProductToCart(barcode);
           
           // Reset background
           setTimeout(() => {
@@ -346,7 +348,7 @@ function setupBillingListeners() {
         barcodeInput.value = '';
         
         if (barcode) {
-          await addProductToCart(barcode);
+          await enqueueAddProductToCart(barcode);
           barcodeInput.focus(); // Keep focus
         }
       }
@@ -530,11 +532,21 @@ window.handleSuggestionClick = async function(barcode) {
   const productSearch = document.getElementById('product-search');
   const suggestionsDiv = document.getElementById('product-suggestions');
   
-  await addProductToCart(barcode);
+  await enqueueAddProductToCart(barcode);
   if (productSearch) productSearch.value = '';
   if (suggestionsDiv) suggestionsDiv.style.display = 'none';
   if (productSearch) productSearch.focus();
 };
+
+function enqueueAddProductToCart(barcode) {
+  addToCartQueue = addToCartQueue
+    .then(() => addProductToCart(barcode))
+    .catch((error) => {
+      console.error('Queued add-to-cart failed:', error);
+    });
+
+  return addToCartQueue;
+}
 
 async function addProductToCart(barcode) {
   try {
@@ -618,6 +630,7 @@ function showNotification(message, type = 'info') {
     font-size: 16px;
     font-weight: bold;
     z-index: 10000;
+    pointer-events: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     animation: slideIn 0.3s ease-out;
   `;
@@ -632,23 +645,37 @@ function showNotification(message, type = 'info') {
 }
 
 function updateCartUI() {
+  if (updateCartUI._isRendering) {
+    updateCartUI._needsRerender = true;
+    return;
+  }
+
+  updateCartUI._isRendering = true;
+  requestAnimationFrame(() => {
+    updateCartUI._isRendering = false;
+
   const cartBody = document.getElementById('cart-items');
   const subtotalEl = document.getElementById('cart-subtotal');
   const totalEl = document.getElementById('cart-total');
   
-  if (!cartBody) return;
+  if (!cartBody) {
+    if (updateCartUI._needsRerender) {
+      updateCartUI._needsRerender = false;
+      updateCartUI();
+    }
+    return;
+  }
   
   if (cart.length === 0) {
     cartBody.innerHTML = '<tr><td colspan="5" class="text-center">Cart is empty. Scan or select a product to begin.</td></tr>';
     if (subtotalEl) subtotalEl.textContent = '₹0.00';
     if (totalEl) totalEl.textContent = '₹0.00';
+    if (updateCartUI._needsRerender) {
+      updateCartUI._needsRerender = false;
+      updateCartUI();
+    }
     return;
   }
-  
-  // Throttle updates to prevent Windows lag
-  if (updateCartUI._timeout) return;
-  updateCartUI._timeout = true;
-  setTimeout(() => { updateCartUI._timeout = false; }, 50);
   
   // Update cart table
   cartBody.innerHTML = cart.map((item, index) => `
@@ -698,6 +725,12 @@ function updateCartUI() {
   
   if (subtotalEl) subtotalEl.textContent = '₹' + subtotal.toFixed(2);
   if (totalEl) totalEl.textContent = '₹' + total.toFixed(2);
+
+    if (updateCartUI._needsRerender) {
+      updateCartUI._needsRerender = false;
+      updateCartUI();
+    }
+  });
 }
 
 function removeFromCart(index) {
@@ -1304,7 +1337,24 @@ function filterProducts() {
 }
 
 async function saveProduct(form) {
+  if (isSavingProduct) return;
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const releaseSaveState = () => {
+    isSavingProduct = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = form.dataset.editId ? 'Update Product' : 'Save Product';
+    }
+  };
+
   try {
+    isSavingProduct = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+
     const barcode = form.querySelector('[name="barcode"]').value.trim();
     const name = form.querySelector('[name="name"]').value.trim();
     const category = form.querySelector('[name="category"]').value;
@@ -1315,17 +1365,17 @@ async function saveProduct(form) {
     const is_active = activeCheckbox ? (activeCheckbox.checked ? 1 : 0) : 1;
 
     if (!barcode || !name || !category) {
-      alert('Please fill all required fields!');
+      showNotification('Please fill all required fields!', 'warning');
       return;
     }
 
     if (isNaN(buy_price) || isNaN(sell_price)) {
-      alert('Please enter valid prices!');
+      showNotification('Please enter valid prices!', 'warning');
       return;
     }
 
     if (sell_price < buy_price) {
-      alert('Sell price cannot be less than buy price!');
+      showNotification('Sell price cannot be less than buy price!', 'warning');
       return;
     }
 
@@ -1336,34 +1386,42 @@ async function saveProduct(form) {
       const product = { name, category, buy_price, sell_price, quantity, is_active };
       console.log('Updating product id:', editId, product);
       await window.electronAPI.updateProduct(editId, product);
-      alert('Product updated successfully!');
+      showNotification('Product updated successfully!', 'success');
     } else {
       // ADD new product
       const product = { barcode, name, category, buy_price, sell_price, quantity, is_active };
       console.log('Adding product:', product);
       await window.electronAPI.addProduct(product);
-      alert('Product added successfully!');
+      showNotification('Product added successfully!', 'success');
     }
 
     // Reset form and edit state
     form.reset();
     delete form.dataset.editId;
     document.getElementById('product-barcode').readOnly = false;
-    const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.textContent = 'Save Product';
     const cancelBtn = document.getElementById('cancel-edit-btn');
     if (cancelBtn) cancelBtn.style.display = 'none';
 
-    await loadProducts();
-    await loadDashboardStats();
+    // Unlock the form immediately, then refresh data in the background.
+    releaseSaveState();
+    setTimeout(async () => {
+      try {
+        await Promise.all([loadProducts(), loadDashboardStats()]);
+      } catch (refreshError) {
+        console.error('Error refreshing product/dashboard data:', refreshError);
+      }
+    }, 0);
   } catch (error) {
     console.error('Error saving product:', error);
     const msg = error.message || '';
     if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('barcode')) {
-      alert('⚠️ A product with this barcode already exists!\nPlease use a different barcode or edit the existing product.');
+      showNotification('A product with this barcode already exists. Use another barcode or edit existing product.', 'warning');
     } else {
-      alert('Error: ' + (msg || 'Unknown error'));
+      showNotification('Error: ' + (msg || 'Unknown error'), 'error');
     }
+  } finally {
+    releaseSaveState();
   }
 }
 
