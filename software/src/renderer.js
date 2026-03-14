@@ -255,14 +255,18 @@ async function loadLowStockItems() {
       </tr>
     `).join('');
     
-    // Add event listeners for restock buttons
-    tbody.querySelectorAll('button[data-action="restock"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = parseInt(e.target.dataset.id);
-        const name = e.target.dataset.name;
-        restockProduct(id, name);
+    // Use event delegation for better Windows performance
+    if (!tbody._delegated) {
+      tbody._delegated = true;
+      tbody.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="restock"]');
+        if (btn) {
+          const id = parseInt(btn.dataset.id);
+          const name = btn.dataset.name;
+          restockProduct(id, name);
+        }
       });
-    });
+    }
   } catch (error) {
     console.error('Error loading low stock items:', error);
   }
@@ -300,16 +304,74 @@ function setupBillingListeners() {
   
   const barcodeInput = document.getElementById('barcode-input');
   if (barcodeInput) {
+    let scanTimeout;
+    let lastInputTime = 0;
+    
+    // Auto-detect barcode scanner input (fast typing)
+    barcodeInput.addEventListener('input', async (e) => {
+      const currentTime = Date.now();
+      const timeDiff = currentTime - lastInputTime;
+      lastInputTime = currentTime;
+      
+      // Clear previous timeout
+      clearTimeout(scanTimeout);
+      
+      // If typing is very fast (< 50ms between chars), it's likely a scanner
+      const isScanner = timeDiff < 50 && barcodeInput.value.length > 3;
+      
+      // Auto-submit after 100ms of no input (scanner finished)
+      scanTimeout = setTimeout(async () => {
+        const barcode = barcodeInput.value.trim();
+        
+        if (barcode && barcode.length >= 8) { // Minimum barcode length
+          barcodeInput.value = '';
+          barcodeInput.style.background = '#e8f5e9'; // Green flash
+          
+          await addProductToCart(barcode);
+          
+          // Reset background
+          setTimeout(() => {
+            barcodeInput.style.background = '';
+            barcodeInput.focus(); // Keep focus for next scan
+          }, 200);
+        }
+      }, isScanner ? 100 : 500); // Shorter delay for scanner
+    });
+    
+    // Manual entry with Enter key still works
     barcodeInput.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
+        clearTimeout(scanTimeout); // Cancel auto-submit
         const barcode = barcodeInput.value.trim();
         barcodeInput.value = '';
         
         if (barcode) {
           await addProductToCart(barcode);
+          barcodeInput.focus(); // Keep focus
         }
       }
     });
+    
+    // Keep scanner flow convenient, but never steal focus from manual typing/search
+    const safeFocusBarcode = () => {
+      const billingPage = document.getElementById('billing-page');
+      if (!billingPage || !billingPage.classList.contains('active')) return;
+
+      const activeEl = document.activeElement;
+      const isTypingInAnotherField = activeEl && (
+        activeEl.id === 'product-search' ||
+        activeEl.id === 'customer-phone' ||
+        activeEl.id === 'barcode-input' ||
+        activeEl.tagName === 'TEXTAREA'
+      );
+
+      if (!isTypingInAnotherField) {
+        barcodeInput.focus();
+      }
+    };
+
+    // One-time focus when billing listeners are initialized
+    safeFocusBarcode();
   }
   
   // Product name search with live suggestions
@@ -317,90 +379,124 @@ function setupBillingListeners() {
   const suggestionsDiv = document.getElementById('product-suggestions');
   
   if (productSearch && suggestionsDiv) {
-    // Show suggestions on input
+    // Show suggestions on input with debounce (Windows performance fix)
+    let searchTimeout;
     productSearch.addEventListener('input', (e) => {
       const searchTerm = e.target.value.toLowerCase().trim();
       
-      if (!searchTerm) {
-        suggestionsDiv.style.display = 'none';
-        return;
-      }
-      
-      // Check if products are loaded
-      if (!allProducts || allProducts.length === 0) {
-        suggestionsDiv.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: #ff9800; font-size: 15px;">
-            ⏳ Loading products, please wait...
-          </div>
-        `;
-        suggestionsDiv.style.display = 'block';
-        return;
-      }
-      
-      // Find all matching products (only active ones in billing)
-      const matches = allProducts.filter(product => {
-        const isActive = product.is_active !== undefined ? product.is_active : 1;
-        return isActive === 1 && (
-          product.name.toLowerCase().includes(searchTerm) ||
-          product.category.toLowerCase().includes(searchTerm) ||
-          product.barcode.includes(searchTerm)
-        );
-      });
-      
-      if (matches.length > 0) {
-        suggestionsDiv.innerHTML = matches.map(product => `
-          <div class="suggestion-item" 
-               data-barcode="${product.barcode}"
-               style="
-                 padding: 15px 20px;
-                 cursor: pointer;
-                 border-bottom: 1px solid #eee;
-                 transition: all 0.2s ease;
-               ">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <strong style="font-size: 16px;">${product.name}</strong>
-                <div style="font-size: 13px; color: #666; margin-top: 3px;">
-                  ${product.category} • Barcode: ${product.barcode}
-                </div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: bold; color: #000;">₹${product.sell_price}</div>
-                <div style="font-size: 13px; color: ${product.quantity < 10 ? '#ff4444' : '#4CAF50'};">
-                  Stock: ${product.quantity}
-                </div>
-              </div>
+      // Debounce to prevent lag on Windows
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        handleProductSearch(searchTerm, suggestionsDiv);
+      }, 150); // 150ms delay
+    });
+  }
+  
+  // Call supplementary billing setup
+  setupBillingPageEvents();
+}
+
+// Separate function for product search (performance optimization)
+function handleProductSearch(searchTerm, suggestionsDiv) {
+  if (!searchTerm) {
+    suggestionsDiv.style.display = 'none';
+    return;
+  }
+  
+  // Check if products are loaded
+  if (!allProducts || allProducts.length === 0) {
+    suggestionsDiv.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: #ff9800; font-size: 15px;">
+        ⏳ Loading products, please wait...
+      </div>
+    `;
+    suggestionsDiv.style.display = 'block';
+    return;
+  }
+  
+  // Find matching products (only active ones, limit to 20 for performance)
+  // Search by starting letters for name/category, or contains for barcode
+  const matches = allProducts.filter(product => {
+    const isActive = product.is_active !== undefined ? product.is_active : 1;
+    return isActive === 1 && (
+      product.name.toLowerCase().startsWith(searchTerm) ||
+      product.category.toLowerCase().startsWith(searchTerm) ||
+      product.barcode.includes(searchTerm)
+    );
+  }).slice(0, 20); // Limit to 20 results for Windows performance
+  
+  if (matches.length > 0) {
+    suggestionsDiv.innerHTML = matches.map(product => `
+      <div class="suggestion-item" 
+           data-barcode="${product.barcode}"
+           style="
+             padding: 15px 20px;
+             cursor: pointer;
+             border-bottom: 1px solid #eee;
+             transition: all 0.2s ease;
+           ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <strong style="font-size: 16px;">${product.name}</strong>
+            <div style="font-size: 13px; color: #666; margin-top: 3px;">
+              ${product.category} • Barcode: ${product.barcode}
             </div>
           </div>
-        `).join('');
-        
-        // Add event listeners for suggestions
-        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
-          item.addEventListener('mouseover', function() {
-            this.style.background = '#FFC107';
-            this.style.color = '#000';
-          });
-          item.addEventListener('mouseout', function() {
-            this.style.background = 'white';
-            this.style.color = '#000';
-          });
-          item.addEventListener('click', function() {
-            const barcode = this.dataset.barcode;
-            window.handleSuggestionClick(barcode);
-          });
-        });
-        
-        suggestionsDiv.style.display = 'block';
-      } else {
-        suggestionsDiv.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: #999; font-size: 15px;">
-            No products found matching "${searchTerm}"
+          <div style="text-align: right;">
+            <div style="font-size: 18px; font-weight: bold; color: #000;">₹${product.sell_price}</div>
+            <div style="font-size: 13px; color: ${product.quantity < 10 ? '#ff4444' : '#4CAF50'};">
+              Stock: ${product.quantity}
+            </div>
           </div>
-        `;
-        suggestionsDiv.style.display = 'block';
+        </div>
+      </div>
+    `).join('');
+    
+    // Use event delegation instead of multiple listeners (Windows fix)
+    // Remove old listener if exists
+    const oldHandler = suggestionsDiv._clickHandler;
+    if (oldHandler) {
+      suggestionsDiv.removeEventListener('click', oldHandler);
+    }
+    
+    // Add single delegated listener
+    const clickHandler = function(e) {
+      const item = e.target.closest('.suggestion-item');
+      if (item) {
+        const barcode = item.dataset.barcode;
+        window.handleSuggestionClick(barcode);
       }
+    };
+    suggestionsDiv._clickHandler = clickHandler;
+    suggestionsDiv.addEventListener('click', clickHandler);
+    
+    // Add hover effect via CSS class instead of inline styles
+    suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+      item.addEventListener('mouseenter', function() {
+        this.style.background = '#FFC107';
+      });
+      item.addEventListener('mouseleave', function() {
+        this.style.background = 'white';
+      });
     });
     
+    suggestionsDiv.style.display = 'block';
+  } else {
+    suggestionsDiv.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: #999; font-size: 15px;">
+        No products found matching "${searchTerm}"
+      </div>
+    `;
+    suggestionsDiv.style.display = 'block';
+  }
+}
+
+// Setup billing page interactions
+function setupBillingPageEvents() {
+  const productSearch = document.getElementById('product-search');
+  const suggestionsDiv = document.getElementById('product-suggestions');
+  
+  if (productSearch && suggestionsDiv) {
     // Hide suggestions when clicking outside
     document.addEventListener('click', (e) => {
       if (!productSearch.contains(e.target) && !suggestionsDiv.contains(e.target)) {
@@ -411,7 +507,7 @@ function setupBillingListeners() {
     // Focus search when clicked
     productSearch.addEventListener('focus', () => {
       if (productSearch.value.trim()) {
-        productSearch.dispatchEvent(new Event('input'));
+        handleProductSearch(productSearch.value.toLowerCase().trim(), suggestionsDiv);
       }
     });
     
@@ -445,12 +541,23 @@ async function addProductToCart(barcode) {
     const product = await window.electronAPI.getProductByBarcode(barcode);
     
     if (!product) {
-      alert('⚠️ Product not found!\nBarcode: ' + barcode);
+      // Beep sound for error (system beep)
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwF');
+      audio.volume = 0.3;
+      audio.play().catch(() => {}); // Silent fail if audio blocked
+      
+      // Visual feedback
+      showNotification('⚠️ Product not found! Barcode: ' + barcode, 'error');
       return;
     }
     
     if (product.quantity < 1) {
-      alert(`⚠️ ${product.name} is out of stock!`);
+      // Error beep
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwF');
+      audio.volume = 0.3;
+      audio.play().catch(() => {});
+      
+      showNotification(`⚠️ ${product.name} is out of stock!`, 'error');
       return;
     }
     
@@ -462,7 +569,7 @@ async function addProductToCart(barcode) {
         cartItem.quantity++;
         cartItem.total_price = cartItem.quantity * cartItem.unit_price;
       } else {
-        alert('Not enough stock');
+        showNotification('⚠️ Not enough stock available', 'warning');
         return;
       }
     } else {
@@ -476,10 +583,52 @@ async function addProductToCart(barcode) {
       });
     }
     
+    // Success beep (higher pitch)
+    const successAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA=');
+    successAudio.volume = 0.2;
+    successAudio.play().catch(() => {});
+    
+    // Visual success feedback
+    showNotification(`✅ Added: ${product.name} (₹${product.sell_price})`, 'success');
+    
     updateCartUI();
   } catch (error) {
     console.error('Error adding product to cart:', error);
+    showNotification('❌ Error adding product', 'error');
   }
+}
+
+// Toast notification function for scanner feedback
+function showNotification(message, type = 'info') {
+  // Remove existing notification
+  const existing = document.getElementById('scanner-notification');
+  if (existing) existing.remove();
+  
+  const notification = document.createElement('div');
+  notification.id = 'scanner-notification';
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 15px 25px;
+    background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#ff9800'};
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    animation: slideIn 0.3s ease-out;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Auto remove after 2 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => notification.remove(), 300);
+  }, 2000);
 }
 
 function updateCartUI() {
@@ -495,6 +644,11 @@ function updateCartUI() {
     if (totalEl) totalEl.textContent = '₹0.00';
     return;
   }
+  
+  // Throttle updates to prevent Windows lag
+  if (updateCartUI._timeout) return;
+  updateCartUI._timeout = true;
+  setTimeout(() => { updateCartUI._timeout = false; }, 50);
   
   // Update cart table
   cartBody.innerHTML = cart.map((item, index) => `
@@ -516,11 +670,15 @@ function updateCartUI() {
     </tr>
   `).join('');
   
-  // Add event listeners for cart action buttons
-  cartBody.querySelectorAll('button[data-action]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = e.target.dataset.action;
-      const index = parseInt(e.target.dataset.index);
+  // Use event delegation for better Windows performance
+  if (!cartBody._delegated) {
+    cartBody._delegated = true;
+    cartBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      
+      const action = btn.dataset.action;
+      const index = parseInt(btn.dataset.index);
       
       if (action === 'decrement') {
         decrementCartItem(index);
@@ -532,7 +690,7 @@ function updateCartUI() {
         removeFromCart(index);
       }
     });
-  });
+  }
   
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
@@ -771,6 +929,7 @@ async function processSale() {
     clearCart();
     await loadDashboardStats();
     await loadLowStockItems();
+    await loadProducts();
   } catch (error) {
     console.error('Error processing sale:', error);
     alert('Error processing sale: ' + error.message);
@@ -1075,7 +1234,15 @@ function displayProducts(products) {
     return;
   }
   
-  tbody.innerHTML = products.map(product => {
+  // Limit display to 100 products at a time for Windows performance
+  const displayLimit = 100;
+  const limitedProducts = products.slice(0, displayLimit);
+  
+  if (products.length > displayLimit) {
+    console.log(`Showing ${displayLimit} of ${products.length} products. Use search to find more.`);
+  }
+  
+  tbody.innerHTML = limitedProducts.map(product => {
     const isActive = product.is_active !== undefined ? product.is_active : 1;
     return `
     <tr style="${isActive === 0 ? 'opacity: 0.5; background: #f5f5f5;' : ''}">
@@ -1097,11 +1264,15 @@ function displayProducts(products) {
   `;
   }).join('');
   
-  // Add event delegation for edit and delete buttons
-  tbody.querySelectorAll('button[data-action]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = e.target.dataset.action;
-      const id = parseInt(e.target.dataset.id);
+  // Use event delegation for better Windows performance
+  if (!tbody._delegated) {
+    tbody._delegated = true;
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      
+      const action = btn.dataset.action;
+      const id = parseInt(btn.dataset.id);
       
       if (action === 'edit') {
         editProduct(id);
@@ -1109,7 +1280,7 @@ function displayProducts(products) {
         deleteProduct(id);
       }
     });
-  });
+  }
 }
 
 function filterProducts() {
@@ -1123,10 +1294,11 @@ function filterProducts() {
     return;
   }
   
+  // Search by starting letters for name/category, or contains for barcode
   const filtered = allProducts.filter(p =>
-    p.barcode.toLowerCase().includes(searchTerm) ||
-    p.name.toLowerCase().includes(searchTerm) ||
-    p.category.toLowerCase().includes(searchTerm)
+    p.barcode.includes(searchTerm) ||
+    p.name.toLowerCase().startsWith(searchTerm) ||
+    p.category.toLowerCase().startsWith(searchTerm)
   );
   displayProducts(filtered);
 }
@@ -1186,7 +1358,12 @@ async function saveProduct(form) {
     await loadDashboardStats();
   } catch (error) {
     console.error('Error saving product:', error);
-    alert('Error: ' + (error.message || 'Unknown error'));
+    const msg = error.message || '';
+    if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('barcode')) {
+      alert('⚠️ A product with this barcode already exists!\nPlease use a different barcode or edit the existing product.');
+    } else {
+      alert('Error: ' + (msg || 'Unknown error'));
+    }
   }
 }
 
@@ -1363,13 +1540,17 @@ async function loadDailyReport() {
       </tr>
     `).join('');
     
-    // Add event listeners for toggle sale items
-    tbody.querySelectorAll('tr[data-action="toggle-sale"]').forEach(row => {
-      row.addEventListener('click', function() {
-        const saleId = parseInt(this.dataset.saleId);
-        toggleSaleItems(this, saleId);
+    // Use event delegation for better Windows performance
+    if (!tbody._delegated) {
+      tbody._delegated = true;
+      tbody.addEventListener('click', function(e) {
+        const row = e.target.closest('tr[data-action="toggle-sale"]');
+        if (row) {
+          const saleId = parseInt(row.dataset.saleId);
+          toggleSaleItems(row, saleId);
+        }
       });
-    });
+    }
   } catch (error) {
     console.error('Error loading daily report:', error);
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color:red;">Error loading data</td></tr>';

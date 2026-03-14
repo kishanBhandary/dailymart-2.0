@@ -32,4 +32,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auto Updater
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   getAllReleases: () => ipcRenderer.invoke('get-all-releases'),
-});
+});8904336804849

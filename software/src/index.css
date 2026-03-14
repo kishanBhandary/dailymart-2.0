@@ -1143,3 +1143,36 @@ body {
 .btn-whatsapp-checkout:hover .wa-arrow {
   transform: translateX(6px);
 }
+
+/* ==================== BARCODE SCANNER ANIMATIONS ==================== */
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+/* Barcode input highlight when scanner is active */
+#barcode-input:focus {
+  outline: 3px solid #4CAF50 !important;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.3) !important;
+}
+
+#barcode-input {
+  transition: all 0.2s ease;
+}

@@ -146,13 +146,25 @@
             <div class="barcode-section">
               <div style="display: flex; gap: 15px; margin-bottom: 20px;">
                 <!-- Barcode Input -->
-                <div style="flex: 1;">
-                  <label for="barcode-input" class="input-label">Scan Barcode</label>
+                <div style="flex: 1; position: relative;">
+                  <label for="barcode-input" class="input-label">
+                    <span>🔍 Scan Barcode</span>
+                    <!-- <span id="scanner-status" style="
+                      display: inline-block;
+                      margin-left: 10px;
+                      padding: 2px 8px;
+                      background: #4CAF50;
+                      color: white;
+                      border-radius: 4px;
+                      font-size: 11px;
+                      font-weight: bold;
+                    ">USB SCANNER READY</span> -->
+                  </label>
                   <input 
                     type="text" 
                     id="barcode-input" 
                     class="barcode-input" 
-                    placeholder="Scan or type barcode..."
+                    placeholder="🔦 Scan product barcode here..."
                     autocomplete="off"
                   />
                 </div>

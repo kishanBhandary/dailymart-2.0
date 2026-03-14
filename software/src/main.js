@@ -511,13 +511,11 @@ ipcMain.handle('create-sale', async (event, saleData) => {
             [saleId, item.product_id, item.barcode, item.name, item.quantity, item.unit_price, item.total_price],
             (err) => {
               if (err) {
-                hasError = true;
-                reject(err);
+                if (!hasError) { hasError = true; reject(err); }
                 return;
               }
-              completed++;
 
-              // Update product quantity
+              // Update product quantity, then count completion
               db.run(
                 'UPDATE products SET quantity = quantity - ? WHERE id = ?',
                 [item.quantity, item.product_id],
@@ -525,7 +523,10 @@ ipcMain.handle('create-sale', async (event, saleData) => {
                   if (err && !hasError) {
                     hasError = true;
                     reject(err);
-                  } else if (completed === items.length && !hasError) {
+                    return;
+                  }
+                  completed++;
+                  if (completed === items.length && !hasError) {
                     resolve({ id: saleId, bill_number });
                   }
                 }
